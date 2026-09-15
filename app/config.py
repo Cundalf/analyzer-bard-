@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     web_search_enabled: bool = False
     enrich_tracks_llm: bool = False
     enrich_tracks_inherit: bool = True
+    detect_language: bool = True
+    analyze_audio: bool = False
+    audio_analysis_seconds: int = 30
 
     playlist_default_size: int = 30
     playlist_max_size: int = 100
@@ -86,9 +89,12 @@ OVERRIDABLE: tuple[str, ...] = (
     "agent_enabled",
     "web_search_enabled",
     "enrich_tracks_llm",
+    "detect_language",
+    "analyze_audio",
     "embed_dim",
     "playlist_default_size",
     "playlist_max_size",
+    "audio_analysis_seconds",
 )
 
 BOOL_FIELDS = {
@@ -97,8 +103,15 @@ BOOL_FIELDS = {
     "agent_enabled",
     "web_search_enabled",
     "enrich_tracks_llm",
+    "detect_language",
+    "analyze_audio",
 }
-INT_FIELDS = {"embed_dim", "playlist_default_size", "playlist_max_size"}
+INT_FIELDS = {
+    "embed_dim",
+    "playlist_default_size",
+    "playlist_max_size",
+    "audio_analysis_seconds",
+}
 
 
 def coerce_override(field: str, value: Any) -> Any:

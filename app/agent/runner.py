@@ -245,6 +245,7 @@ async def generate_playlist(
                 result.update(
                     _save_direct(client, result["playlist_name"], result["track_ids"])
                 )
+            _attach_track_details(conn, result, candidates)
             return result
 
         reranked = await rerank_candidates(
@@ -267,12 +268,64 @@ async def generate_playlist(
             result.update(
                 _save_direct(client, result["playlist_name"], result["track_ids"])
             )
+        _attach_track_details(conn, result, candidates)
         return result
     finally:
         if owns:
             await ollama.close()
         if close_client and client is not None:
             client.close()
+
+
+
+def _attach_track_details(
+    conn: Any, result: dict[str, Any], candidates: list[dict[str, Any]]
+) -> None:
+    """Completa `result['tracks']` con los detalles de los tracks elegidos."""
+    track_ids = result.get("track_ids") or []
+    if not track_ids:
+        result["tracks"] = []
+        return
+    by_id = {c["track_id"]: c for c in candidates}
+    missing = [tid for tid in track_ids if tid not in by_id]
+    fetched: dict[str, dict[str, Any]] = {}
+    if missing:
+        fetched.update(_fetch_candidates(conn, missing))
+    details: list[dict[str, Any]] = []
+    for track_id in track_ids:
+        candidate = by_id.get(track_id) or fetched.get(track_id)
+        if not candidate:
+            details.append({"track_id": track_id, "title": "", "artist": ""})
+            continue
+        details.append(
+            {
+                "track_id": track_id,
+                "title": candidate.get("title", ""),
+                "artist": candidate.get("artist", ""),
+                "album": candidate.get("album", ""),
+                "year": candidate.get("year"),
+                "genre": candidate.get("genre") or "",
+                "moods": (candidate.get("moods") or [])[:4],
+                "themes": (candidate.get("themes") or [])[:4],
+            }
+        )
+    result["tracks"] = details
+
+
+def _fetch_candidates(conn: Any, track_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Trae detalles del espejo para IDs que no vinieron del recall."""
+    from app.agent.retrieval import BASE_TRACK_QUERY, _hydrate
+
+    found: dict[str, dict[str, Any]] = {}
+    for start in range(0, len(track_ids), 300):
+        chunk = track_ids[start : start + 300]
+        marks = ",".join("?" * len(chunk))
+        rows = conn.execute(
+            f"{BASE_TRACK_QUERY} WHERE t.navidrome_id IN ({marks})", chunk
+        ).fetchall()
+        for candidate in _hydrate(conn, [dict(r) for r in rows]):
+            found[candidate["track_id"]] = candidate
+    return found
 
 
 def _save_direct(client: Any, name: str, track_ids: list[str]) -> dict[str, Any]:

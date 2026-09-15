@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 from app import __version__
 from app.agent.runner import generate_playlist
 from app.config import OVERRIDABLE, runtime_settings
-from app.db import get_conn, init_db, set_setting
+from app.db import facet_list, get_conn, init_db, set_setting
 from app.enrich.canonicalize import Canonicalizer
 from app.janitor.report import library_health
 from app.web.i18n import detect_lang, translations
@@ -262,6 +262,40 @@ def playlists_save(
         return templates.TemplateResponse(
             request, "partials/playlist_error.html", _ctx(request, error=str(exc))
         )
+
+
+@app.get("/facets", response_class=HTMLResponse)
+def facets_page(request: Request) -> HTMLResponse:
+    c = conn()
+    sections = []
+    for entity_type in ("artist", "album", "track"):
+        values: dict[str, list[dict[str, Any]]] = {}
+        for facet in (
+            "languages",
+            "countries",
+            "genres",
+            "decades",
+            "moods",
+            "instrumentation",
+            "vocal_style",
+        ):
+            found = facet_list(c, entity_type, facet)
+            if found:
+                values[facet] = found[:12]
+        if values:
+            sections.append({"entity_type": entity_type, "facets": values})
+    totals = {
+        row["entity_type"]: row["n"]
+        for row in c.execute(
+            "SELECT entity_type, COUNT(DISTINCT entity_id) AS n "
+            "FROM facet_index GROUP BY entity_type"
+        ).fetchall()
+    }
+    return templates.TemplateResponse(
+        request,
+        "facets.html",
+        _ctx(request, sections=sections, totals=totals),
+    )
 
 
 @app.get("/settings", response_class=HTMLResponse)

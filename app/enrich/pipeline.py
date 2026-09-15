@@ -10,6 +10,7 @@ from app.enrich import album as album_mod
 from app.enrich import track as track_mod
 from app.enrich.canonicalize import Canonicalizer
 from app.enrich.lastfm import LastFmClient
+from app.enrich import lyrics as lyrics_mod
 from app.ollama import OllamaClient
 
 log = logging.getLogger("bardo.enrich.pipeline")
@@ -27,6 +28,7 @@ async def enrich_library(
     settings: Settings | None = None,
     ollama: OllamaClient | None = None,
     lastfm: LastFmClient | None = None,
+    client: Any | None = None,
     artists: bool = True,
     albums: bool = True,
     tracks: bool = True,
@@ -42,7 +44,14 @@ async def enrich_library(
     canon = Canonicalizer.from_db(conn)
 
     run_id = start_run(conn, "enrich", "full")
-    stats: dict[str, Any] = {"artists": 0, "albums": 0, "tracks": 0, "skipped": 0}
+    stats: dict[str, Any] = {
+        "artists": 0,
+        "albums": 0,
+        "tracks": 0,
+        "skipped": 0,
+        "languages": 0,
+        "audio": 0,
+    }
 
     try:
         if artists:
@@ -89,7 +98,8 @@ async def enrich_library(
         if tracks:
             rows = conn.execute(
                 """
-                SELECT t.*, a.name AS album_name, ar.navidrome_id AS artist_nid
+                SELECT t.*, a.name AS album_name, ar.navidrome_id AS artist_nid,
+                       ar.name AS artist_name
                 FROM tracks t
                 LEFT JOIN albums a ON a.id = t.album_id
                 LEFT JOIN artists ar ON ar.id = t.artist_id
@@ -146,6 +156,18 @@ async def enrich_library(
                             stats["skipped"] += 1
                     else:
                         stats["skipped"] += 1
+                if settings.detect_language and client is not None:
+                    detected = _detect_track_language(
+                        conn, client, row, progress
+                    )
+                    if detected:
+                        stats["languages"] += 1
+                if settings.analyze_audio:
+                    analyzed = _analyze_track_audio(
+                        conn, row, settings, progress
+                    )
+                    if analyzed:
+                        stats["audio"] += 1
                 progress("track", {"i": i, "total": len(rows), "title": row.get("title")})
 
         finish_run(conn, run_id, "ok", stats)
@@ -183,6 +205,138 @@ def _merge_lastfm_into_ficha(
             content_hash=ficha.get("content_hash") or "",
         ),
     )
+
+
+def _analyze_track_audio(
+    conn: Any,
+    track_row: dict[str, Any],
+    settings: Settings,
+    progress: Progress,
+) -> bool:
+    """Analiza el audio de una canción (requiere MUSIC_DIR) y pisa la energía."""
+    from app.enrich import audio as audio_mod
+
+    music_dir = settings.music_dir
+    if not music_dir:
+        return False
+    track_path = track_row.get("path") or ""
+    path = audio_mod.resolve_track_path(track_path, music_dir)
+    if path is None:
+        return False
+    track_id = track_row.get("navidrome_id") or row_id(track_row)
+    if not track_id:
+        return False
+    features = audio_mod.analyze_file(
+        path,
+        ffmpeg_bin=settings.ffmpeg_bin or None,
+        seconds=settings.audio_analysis_seconds,
+    )
+    if features is None:
+        return False
+    ficha = artist_mod.get_ficha(conn, "track", track_id)
+    if not ficha:
+        return False
+    facets = audio_mod.apply_audio_features(dict(ficha.get("facets") or {}), features)
+    artist_mod.save_ficha(
+        conn,
+        artist_mod.Ficha(
+            entity_type="track",
+            entity_id=track_id,
+            facets=facets,
+            description=ficha.get("description") or "",
+            confidence=float(ficha.get("confidence") or 0.0),
+            source=ficha.get("source") or "inherited",
+            content_hash=ficha.get("content_hash") or "",
+        ),
+    )
+    progress(
+        "audio",
+        {"track": track_id, "energy": features.energy, "bpm": features.bpm},
+    )
+    return True
+
+
+def _detect_track_language(
+    conn: Any,
+    client: Any,
+    track_row: dict[str, Any],
+    progress: Progress,
+) -> str | None:
+    """Detecta el idioma de la letra y lo aplica como dato duro.
+
+    Devuelve el código ISO detectado o None. Nunca rompe el pipeline.
+    """
+    from app.db import utcnow
+
+    track_id = track_row.get("navidrome_id") or row_id(track_row)
+    if not track_id:
+        return None
+    cached = conn.execute(
+        "SELECT lyrics FROM lyrics_cache WHERE track_id = ?", (track_id,)
+    ).fetchone()
+    if cached is not None:
+        lyrics = cached["lyrics"] or ""
+    else:
+        try:
+            lyrics = _fetch_lyrics(client, track_row)
+        except Exception as exc:
+            log.warning("lyrics fetch failed for %s: %s", track_id, exc)
+            return None
+        # No cachear letras vacías: el usuario puede agregarlas después.
+        if lyrics:
+            conn.execute(
+                "INSERT INTO lyrics_cache(track_id, lyrics, fetched_at) "
+                "VALUES (?, ?, ?) ON CONFLICT(track_id) DO UPDATE SET "
+                "lyrics = excluded.lyrics, fetched_at = excluded.fetched_at",
+                (track_id, lyrics, utcnow()),
+            )
+            conn.commit()
+    if not lyrics:
+        return None
+    detected = lyrics_mod.detect_language(lyrics)
+    if not detected:
+        return None
+    code, confidence = detected
+    ficha = artist_mod.get_ficha(conn, "track", track_id)
+    if not ficha:
+        return None
+    facets = dict(ficha.get("facets") or {})
+    facets["language"] = code
+    facets["language_source"] = "lyrics"
+    facets["language_confidence"] = confidence
+    artist_mod.save_ficha(
+        conn,
+        artist_mod.Ficha(
+            entity_type="track",
+            entity_id=track_id,
+            facets=facets,
+            description=ficha.get("description") or "",
+            confidence=float(ficha.get("confidence") or 0.0),
+            source=ficha.get("source") or "inherited",
+            content_hash=ficha.get("content_hash") or "",
+        ),
+    )
+    progress("language", {"track": track_id, "language": code})
+    return code
+
+
+def _fetch_lyrics(client: Any, track_row: dict[str, Any]) -> str:
+    """Letra por ID de canción y, si no hay, por artista/título."""
+    track_id = track_row.get("navidrome_id") or row_id(track_row)
+    lyrics = ""
+    if track_id and hasattr(client, "get_lyrics_by_song_id"):
+        lyrics = client.get_lyrics_by_song_id(track_id) or ""
+    if lyrics:
+        return lyrics
+    title = track_row.get("title") or ""
+    artist = str(track_row.get("artist_name") or "")
+    if title:
+        return client.get_lyrics(artist, title) or ""
+    return ""
+
+
+def row_id(track_row: dict[str, Any]) -> str:
+    return str(track_row.get("id") or "")
 
 
 def _album_navidrome_id(conn: Any, album_pk: str) -> str:

@@ -75,6 +75,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "playlist_max_size": "Tamaño máximo",
         "models_available": "Modelos disponibles en Ollama",
         "error": "Error",
+        "facets": "🏷️ Facetas",
+        "facets_title": "Facetas de la biblioteca",
+        "facets_subtitle": "Vocabulario controlado: idiomas, países, géneros, décadas y moods detectados.",
+        "facets_empty": "Todavía no hay facetas. Corré `bardo enrich` para generarlas.",
+        "track_title": "Tema",
+        "track_artist": "Artista",
+        "track_tags": "Tags",
     },
     "en": {
         "library": "📚 Library",
@@ -148,6 +155,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "playlist_max_size": "Max size",
         "models_available": "Models available in Ollama",
         "error": "Error",
+        "facets": "🏷️ Facets",
+        "facets_title": "Library facets",
+        "facets_subtitle": "Controlled vocabulary: detected languages, countries, genres, decades and moods.",
+        "facets_empty": "No facets yet. Run `bardo enrich` to generate them.",
+        "track_title": "Track",
+        "track_artist": "Artist",
+        "track_tags": "Tags",
     },
 }
 

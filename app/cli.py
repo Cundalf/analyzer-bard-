@@ -82,20 +82,38 @@ def cmd_janitor(args: argparse.Namespace) -> int:
 
 def cmd_enrich(args: argparse.Namespace) -> int:
     from app.enrich.pipeline import enrich_library
+    from app.subsonic import SubsonicClient
 
+    settings = get_settings()
     conn = get_conn()
     init_db(conn)
-    result = asyncio.run(
-        enrich_library(
-            conn,
-            artists=not args.no_artists,
-            albums=not args.no_albums,
-            tracks=not args.no_tracks,
-            limit=args.limit,
-            force=args.force,
-            progress=lambda s, p: print(f"[{s}] {json.dumps(p, ensure_ascii=False)[:200]}"),
+    if args.audio:
+        settings = settings.model_copy(update={"analyze_audio": True})
+    client = None
+    if settings.detect_language and not args.no_lyrics:
+        try:
+            client = SubsonicClient(settings)
+        except Exception as exc:
+            print(f"aviso: sin detección de idioma ({exc})")
+    try:
+        result = asyncio.run(
+            enrich_library(
+                conn,
+                settings=settings,
+                client=client,
+                artists=not args.no_artists,
+                albums=not args.no_albums,
+                tracks=not args.no_tracks,
+                limit=args.limit,
+                force=args.force,
+                progress=lambda s, p: print(
+                    f"[{s}] {json.dumps(p, ensure_ascii=False)[:200]}"
+                ),
+            )
         )
-    )
+    finally:
+        if client is not None:
+            client.close()
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
@@ -198,6 +216,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-artists", action="store_true")
     p.add_argument("--no-albums", action="store_true")
     p.add_argument("--no-tracks", action="store_true")
+    p.add_argument("--no-lyrics", action="store_true", help="sin detección de idioma")
+    p.add_argument("--audio", action="store_true", help="analiza audio (requiere MUSIC_DIR)")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--force", action="store_true")
     p.set_defaults(func=cmd_enrich)

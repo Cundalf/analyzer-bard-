@@ -110,7 +110,7 @@ ollama pull gemma4:cloud     # or any tool-calling chat model, e.g. gemma4:12b
 ```bash
 # Python 3.12+
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[janitor]"   # Janitor extras need ffmpeg + fpcalc on PATH
+pip install -e ".[janitor,lyrics]"   # extras: ffmpeg + fpcalc on PATH; add "audio" for BPM/key
 cp .env.example .env
 
 bardo init          # creates the SQLite DB
@@ -162,7 +162,11 @@ prompt ──► [1] expansion (LLM → canonical terms + associations)
   Spanish", "Argentinian bands", "80s", "calm music" resolve to structured
   filters, not guesswork.
 - **Hard data beats the LLM:** Navidrome genre tags, Last.fm crowd tags and
-  language detection override the model when they disagree.
+  offline language detection (py3langid, from lyrics) override the model when
+  they disagree.
+- **Optional real audio analysis:** loudness/energy, brightness, dynamic range
+  always via ffmpeg; BPM and musical key with the `audio` extra (librosa).
+  Disabled by default (`ANALYZE_AUDIO=true`, needs `MUSIC_DIR`).
 - **Full inheritance:** tracks inherit language, country, genre,
   instrumentation, vocal style and energy from album → artist.
 - **Artist/album** are enriched with the LLM. **Tracks** inherit from their
@@ -189,6 +193,8 @@ All settings live in `.env` (see `.env.example`). Key ones:
 | `MUSIC_DIR` | — | same folder Navidrome serves |
 | `ENABLE_LASTFM` | `false` | crowd tags via `LASTFM_API_KEY` |
 | `ENRICH_TRACKS_LLM` | `false` | per-track LLM enrichment (expensive) |
+| `DETECT_LANGUAGE` | `true` | offline lyrics language detection (`lyrics` extra) |
+| `ANALYZE_AUDIO` | `false` | real audio features; needs `MUSIC_DIR` (`audio` extra) |
 | `WEB_SEARCH_ENABLED` | `false` | surgical factual validation only |
 
 Settings can also be overridden at runtime from **Settings** in the UI

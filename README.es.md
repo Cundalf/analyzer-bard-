@@ -111,7 +111,7 @@ ollama pull gemma4:cloud     # o cualquier modelo con tool calling, ej. gemma4:1
 ```bash
 # Python 3.12+
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[janitor]"   # los extras del Janitor necesitan ffmpeg + fpcalc en PATH
+pip install -e ".[janitor,lyrics]"   # extras: ffmpeg + fpcalc en PATH; agregá "audio" para BPM/key
 cp .env.example .env
 
 bardo init          # crea la DB SQLite
@@ -163,7 +163,11 @@ prompt ──► [1] expansión (LLM → términos canónicos + asociaciones)
   "Música en español", "bandas argentinas", "de los 80", "música tranquila" se
   resuelven a filtros estructurados, no a adivinanzas.
 - **Dato duro pisa al LLM:** los tags de género de Navidrome, los crowd tags de
-  Last.fm y la detección de idioma tienen prioridad cuando contradicen al modelo.
+  Last.fm y la detección de idioma offline (py3langid, desde la letra) tienen
+  prioridad cuando contradicen al modelo.
+- **Análisis acústico real opcional:** loudness/energía, brillo y rango dinámico
+  siempre vía ffmpeg; BPM y tonalidad con el extra `audio` (librosa).
+  Deshabilitado por defecto (`ANALYZE_AUDIO=true`, requiere `MUSIC_DIR`).
 - **Herencia completa:** las canciones heredan idioma, país, género,
   instrumentación, estilo vocal y energía desde álbum → artista.
 - **Artista/álbum** se enriquecen con el LLM. Las **canciones** heredan de su
@@ -190,6 +194,8 @@ Todo se configura en `.env` (ver `.env.example`). Las clave:
 | `MUSIC_DIR` | — | misma carpeta que sirve Navidrome |
 | `ENABLE_LASTFM` | `false` | crowd tags vía `LASTFM_API_KEY` |
 | `ENRICH_TRACKS_LLM` | `false` | enriquecimiento por canción con LLM (caro) |
+| `DETECT_LANGUAGE` | `true` | detección de idioma por letra offline (extra `lyrics`) |
+| `ANALYZE_AUDIO` | `false` | features de audio reales; requiere `MUSIC_DIR` (extra `audio`) |
 | `WEB_SEARCH_ENABLED` | `false` | validación factual quirúrgica |
 
 También podés pisar settings en runtime desde **Configuración** en la UI

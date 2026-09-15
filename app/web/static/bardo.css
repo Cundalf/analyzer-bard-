@@ -57,6 +57,42 @@ nav strong {
   border-left: 4px solid var(--pico-del-color);
 }
 
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.08rem 0.45rem;
+  margin: 0.08rem 0.1rem 0.08rem 0;
+  border-radius: 1rem;
+  background: var(--pico-secondary-background);
+  color: var(--pico-secondary-inverse);
+  white-space: nowrap;
+}
+
+.badge small {
+  opacity: 0.7;
+  font-size: 0.65rem;
+}
+
+.badge-genre {
+  background: #3b5998;
+}
+
+.badge-mood {
+  background: #7c3aed;
+}
+
+.badge-theme {
+  background: #0f766e;
+}
+
+.badge-lang {
+  background: #b45309;
+}
+
+.badge-country {
+  background: #166534;
+}
+
 table td {
   vertical-align: top;
 }

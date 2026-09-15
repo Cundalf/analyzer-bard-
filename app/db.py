@@ -99,6 +99,10 @@ CREATE TABLE IF NOT EXISTS web_cache (
   query TEXT PRIMARY KEY, payload TEXT, fetched_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS lyrics_cache (
+  track_id TEXT PRIMARY KEY, lyrics TEXT, fetched_at TEXT
+);
+
 -- Full-text search sobre el espejo (para recall sin vectores)
 CREATE VIRTUAL TABLE IF NOT EXISTS fts_entities USING fts5(
   entity_type,

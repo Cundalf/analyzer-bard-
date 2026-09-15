@@ -9,6 +9,40 @@
   </details>
   {% endif %}
 
+  {% if result.tracks %}
+  <details open>
+    <summary>{{ t.tracks_preview }}</summary>
+    <table>
+      <thead>
+        <tr>
+          <th>{{ t.track_title }}</th>
+          <th>{{ t.track_artist }}</th>
+          <th>{{ t.track_tags }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for track in result.tracks %}
+        <tr>
+          <td>
+            {{ track.title or track.track_id }}
+            {% if track.year %}<br><small>{{ track.year }}</small>{% endif %}
+          </td>
+          <td>
+            {{ track.artist or '—' }}
+            {% if track.album %}<br><small>{{ track.album }}</small>{% endif %}
+          </td>
+          <td>
+            {% if track.genre %}<span class="badge badge-genre">{{ track.genre }}</span>{% endif %}
+            {% for mood in track.moods %}<span class="badge badge-mood">{{ mood }}</span>{% endfor %}
+            {% for theme in track.themes %}<span class="badge badge-theme">{{ theme }}</span>{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+
   {% if result.track_ids %}
   <form hx-post="/playlists/save" hx-target="#preview" hx-swap="innerHTML">
     <input type="hidden" name="name" value="{{ result.playlist_name }}">

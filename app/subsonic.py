@@ -347,6 +347,34 @@ class SubsonicClient:
         body = self._request("getScanStatus.view")
         return body.get("scanStatus", {})
 
+    def get_lyrics(
+        self, artist: str, title: str
+    ) -> str:
+        """Letra de un tema (vacío si no hay). OpenSubsonic getLyrics."""
+        body = self._request(
+            "getLyrics.view", artist=artist, title=title
+        )
+        lyrics = body.get("lyrics") or {}
+        return str(lyrics.get("value") or "")
+
+    def get_lyrics_by_song_id(self, track_id: str) -> str:
+        """Letra por ID de canción (OpenSubsonic getLyricsBySongId)."""
+        body = self._request("getLyricsBySongId.view", id=track_id)
+        entries = (
+            body.get("lyricsList", {}).get("structuredLyrics", []) or []
+        )
+        parts = [
+            entry.get("line", [])
+            for entry in entries
+            if isinstance(entry, dict)
+        ]
+        lines: list[str] = []
+        for part in parts:
+            for line in part if isinstance(part, list) else []:
+                value = line.get("value") if isinstance(line, dict) else None
+                lines.append(str(value) if value is not None else "")
+        return "\n".join(lines)
+
     def stream_url(self, track_id: str, max_bit_rate: int | None = None) -> str:
         params: dict[str, Any] = {"id": track_id}
         if max_bit_rate:
