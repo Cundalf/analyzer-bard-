@@ -1,0 +1,35 @@
+# Entornos locales
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Herramientas
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Secretos y datos locales
+.env
+data/
+runs/
+*.sqlite
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Config de beets (generada en runtime); el ejemplo sí se versiona
+beets-config/*
+!beets-config/config.example.yaml
+
+# Biblioteca de música montada (nunca al repo)
+music/
+
+# Sistema
+.DS_Store
+Thumbs.db

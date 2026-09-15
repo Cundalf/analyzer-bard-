@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ t.playlists_title }} · Bardo{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>{{ t.playlists_title }}</h1>
+  <p>{{ t.playlists_subtitle }}</p>
+</hgroup>
+
+<article>
+  <form hx-post="/playlists/generate" hx-target="#preview" hx-swap="innerHTML"
+        hx-indicator="#spinner">
+    <label for="prompt">{{ t.prompt_label }}</label>
+    <textarea id="prompt" name="prompt" rows="3" required
+              placeholder="{{ t.prompt_placeholder }}"></textarea>
+    <label>
+      <input type="checkbox" name="use_agent" value="true" checked>
+      {{ t.use_agent }}
+    </label>
+    <button type="submit">
+      {{ t.generate }}
+      <span id="spinner" class="htmx-indicator" aria-busy="true"></span>
+    </button>
+  </form>
+</article>
+
+<div id="preview"></div>
+
+<h3>{{ t.existing }}</h3>
+<figure>
+  <table>
+    <thead><tr><th>{{ t.prompt_label }}</th><th>{{ t.tracks }}</th></tr></thead>
+    <tbody>
+      {% for playlist in existing %}
+      <tr><td>{{ playlist.name }}</td><td>{{ playlist.song_count }}</td></tr>
+      {% else %}
+      <tr><td colspan="2">{{ t.no_playlists }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% endblock %}

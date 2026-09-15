@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ t.run }} #{{ run.id }} · Bardo{% endblock %}
+{% block content %}
+<p><a href="/library">{{ t.back }}</a></p>
+<hgroup>
+  <h1>{{ t.run }} #{{ run.id }} · {{ run.module }} {{ run.kind }}</h1>
+  <p>{{ run.status }} · {{ run.started_at }} → {{ run.finished_at or '…' }}</p>
+</hgroup>
+
+{% if stats %}
+<article>
+  <header>Stats</header>
+  <pre>{{ stats | tojson(indent=2) }}</pre>
+</article>
+{% endif %}
+
+<h3>{{ t.diff }}</h3>
+{% for entry in entries %}
+<article>
+  <header>
+    <small>{{ entry.file }}</small>
+    {% if entry.match_score is not none %}
+    <span class="score">{{ t.score }}: {{ '%.2f' | format(entry.match_score) }}</span>
+    {% endif %}
+    <span class="status-badge">{{ entry.status }}</span>
+  </header>
+  {% if entry.changed %}
+  <table>
+    <thead><tr><th></th><th>Antes</th><th>Después</th></tr></thead>
+    <tbody>
+      {% for field, values in entry.changed.items() %}
+      <tr>
+        <td><strong>{{ field }}</strong></td>
+        <td class="old">{{ values.old or '—' }}</td>
+        <td class="new">{{ values.new or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p><small>sin cambios</small></p>
+  {% endif %}
+</article>
+{% else %}
+<p>{{ t.no_entries }}</p>
+{% endfor %}
+{% endblock %}

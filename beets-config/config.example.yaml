@@ -1,0 +1,34 @@
+# Directorio de la biblioteca tal como lo ve Navidrome (bind mount).
+directory: /music
+
+# Library de beets (metadata.sqlite de beets, NO la de Bardo).
+library: /config/library.db
+
+import:
+  write: yes
+  move: no          # CRÍTICO: no mover/renombrar → mantiene estables los IDs de Navidrome
+  copy: no
+  autotag: yes
+  detail: yes
+  quiet: yes
+  resume: no
+  incremental: no
+
+plugins: chroma fromfilename fetchart mbsync subsonicupdate lyrics bardo
+
+# Plugin propio de Bardo (log antes/después en JSONL).
+pluginpath: /app/app/janitor
+
+bardo:
+  logpath: /data/runs/beets.jsonl
+
+acoustid:
+  # Gratis en https://acoustid.org/new-application
+  apikey: TU_API_KEY_DE_ACOUSTID
+
+# Ojo: el plugin subsonicupdate (beets 2.14+) usa la sección `subsonic`.
+subsonic:
+  url: http://navidrome:4533
+  user: TU_USER
+  pass: TU_PASS
+  auth: token

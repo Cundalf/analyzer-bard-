@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Bardo{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>{{ t.dashboard_title }}</h1>
+  <p>{{ t.dashboard_subtitle }}</p>
+</hgroup>
+
+<div class="grid">
+  <article>
+    <header>{{ t.status }}</header>
+    <p>
+      {{ t.navidrome }}:
+      <mark class="{{ '' if subsonic_ok else 'secondary' }}">
+        {{ t.ok if subsonic_ok else t.fail }}
+      </mark>
+    </p>
+    <p>
+      Ollama:
+      <mark class="{{ '' if ollama_ok else 'secondary' }}">
+        {{ t.ok if ollama_ok else t.fail }}
+      </mark>
+    </p>
+    <p>{{ t.janitor }}:
+      <strong>{{ t.enabled if settings.janitor_enabled else t.disabled }}</strong>
+    </p>
+  </article>
+
+  <article>
+    <header>{{ t.health }}</header>
+    <h2>{{ health.health }}%</h2>
+    <progress value="{{ health.health }}" max="100"></progress>
+    <p><small>{{ health.albums }} {{ t.albums }} · {{ health.tracks }} {{ t.tracks }}</small></p>
+    <ul>
+      <li>{{ health.no_year }} {{ t.no_year }}</li>
+      <li>{{ health.unknown_artist }} {{ t.unknown_artist }}</li>
+      <li>{{ health.blank_name + health.generic_name }} {{ t.bad_names }}</li>
+    </ul>
+  </article>
+</div>
+
+<div class="grid">
+  <a role="button" href="/library">📚 {{ t.go_library }}</a>
+  <a role="button" href="/playlists">🎵 {{ t.go_playlists }}</a>
+</div>
+
+<h3>{{ t.recent_runs }}</h3>
+<figure>
+  <table>
+    <thead>
+      <tr><th>#</th><th>{{ t.module }}</th><th>{{ t.status }}</th><th>{{ t.started }}</th><th>{{ t.finished }}</th></tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a href="/library/runs/{{ run.id }}">{{ run.id }}</a></td>
+        <td>{{ run.module }} {{ run.kind }}</td>
+        <td>{{ run.status }}</td>
+        <td><small>{{ run.started_at }}</small></td>
+        <td><small>{{ run.finished_at or '…' }}</small></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">{{ t.no_runs }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% endblock %}

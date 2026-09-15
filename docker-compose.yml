@@ -1,0 +1,38 @@
+name: bardo
+
+services:
+  bardo:
+    build: .
+    image: bardo:latest
+    container_name: bardo
+    restart: unless-stopped
+    environment:
+      - SUBSONIC_URL=${SUBSONIC_URL:-http://navidrome:4533}
+      - SUBSONIC_USER=${SUBSONIC_USER:-admin}
+      - SUBSONIC_PASS=${SUBSONIC_PASS}
+      - OLLAMA_URL=${BARDO_OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-gemma4:cloud}
+      - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL:-nomic-embed-text:v1.5}
+      - LASTFM_API_KEY=${LASTFM_API_KEY:-}
+      - ENABLE_LASTFM=${ENABLE_LASTFM:-false}
+      - MUSIC_DIR=/music
+      - DATA_DIR=/data
+      - JANITOR_ENABLED=${JANITOR_ENABLED:-false}
+      - WEB_SEARCH_ENABLED=${WEB_SEARCH_ENABLED:-false}
+      - ENRICH_TRACKS_LLM=${ENRICH_TRACKS_LLM:-false}
+      - BEETSDIR=/config
+      - SUBSONIC_TRUSTED=
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data
+      - ${MUSIC_PATH:-./music}:/music
+      - ./beets-config:/config
+    ports:
+      - "${BARDO_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

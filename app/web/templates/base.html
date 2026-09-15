@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="{{ 'es' if request.headers.get('accept-language', '').startswith('es') else 'en' }}" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Bardo{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/bardo.css">
+</head>
+<body>
+  <nav class="container">
+    <ul>
+      <li><a href="/"><strong>🎧 Bardo</strong> <small>v{{ version or '0.1.0' }}</small></a></li>
+    </ul>
+    <ul>
+      <li><a href="/library">{{ t.library }}</a></li>
+      <li><a href="/playlists">{{ t.playlists }}</a></li>
+      <li><a href="/settings">{{ t.settings }}</a></li>
+    </ul>
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container">
+    <small>
+      100% local · <a href="https://github.com/cundalf/bardo">GitHub</a> · MIT
+    </small>
+  </footer>
+</body>
+</html>

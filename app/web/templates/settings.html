@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ t.settings_title }} · Bardo{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>{{ t.settings_title }}</h1>
+  <p>{{ t.settings_subtitle }}</p>
+</hgroup>
+
+<form method="post" action="/settings/save">
+  <div class="grid">
+    <label>
+      {{ t.subsonic_url }}
+      <input type="text" name="subsonic_url" value="{{ stored.get('subsonic_url', settings.subsonic_url) }}">
+    </label>
+    <label>
+      {{ t.subsonic_user }}
+      <input type="text" name="subsonic_user" value="{{ stored.get('subsonic_user', settings.subsonic_user) }}">
+    </label>
+    <label>
+      {{ t.subsonic_pass }}
+      <input type="password" name="subsonic_pass" placeholder="(sin cambios)">
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>
+      {{ t.ollama_url }}
+      <input type="text" name="ollama_url" value="{{ stored.get('ollama_url', settings.ollama_url) }}">
+    </label>
+    <label>
+      {{ t.ollama_chat_model }}
+      <input type="text" name="ollama_chat_model" value="{{ stored.get('ollama_chat_model', settings.ollama_chat_model) }}" list="models">
+    </label>
+    <label>
+      {{ t.ollama_embed_model }}
+      <input type="text" name="ollama_embed_model" value="{{ stored.get('ollama_embed_model', settings.ollama_embed_model) }}" list="models">
+    </label>
+  </div>
+
+  <datalist id="models">
+    {% for model in models %}<option value="{{ model }}">{% endfor %}
+  </datalist>
+
+  <div class="grid">
+    <label>
+      {{ t.lastfm_api_key }}
+      <input type="password" name="lastfm_api_key" placeholder="(sin cambios)">
+    </label>
+    <label>
+      {{ t.embed_dim }}
+      <input type="number" name="embed_dim" value="{{ stored.get('embed_dim', settings.embed_dim) }}">
+    </label>
+    <label>
+      {{ t.playlist_default_size }}
+      <input type="number" name="playlist_default_size" value="{{ stored.get('playlist_default_size', settings.playlist_default_size) }}">
+    </label>
+  </div>
+
+  <fieldset>
+    <label><input type="checkbox" name="enable_lastfm" value="true" {% if settings.enable_lastfm %}checked{% endif %}> {{ t.enable_lastfm }}</label>
+    <label><input type="checkbox" name="janitor_enabled" value="true" {% if settings.janitor_enabled %}checked{% endif %}> {{ t.janitor_enabled }}</label>
+    <label><input type="checkbox" name="agent_enabled" value="true" {% if settings.agent_enabled %}checked{% endif %}> {{ t.agent_enabled }}</label>
+    <label><input type="checkbox" name="web_search_enabled" value="true" {% if settings.web_search_enabled %}checked{% endif %}> {{ t.web_search_enabled }}</label>
+    <label><input type="checkbox" name="enrich_tracks_llm" value="true" {% if settings.enrich_tracks_llm %}checked{% endif %}> {{ t.enrich_tracks_llm }}</label>
+  </fieldset>
+
+  <button type="submit">{{ t.save }}</button>
+</form>
+
+{% if models %}
+<article>
+  <header>{{ t.models_available }}</header>
+  <ul>{% for model in models %}<li><code>{{ model }}</code></li>{% endfor %}</ul>
+</article>
+{% endif %}
+{% endblock %}

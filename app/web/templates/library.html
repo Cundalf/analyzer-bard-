@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ t.library_title }} · Bardo{% endblock %}
+{% block content %}
+<hgroup>
+  <h1>{{ t.library_title }}</h1>
+  <p>{{ t.library_subtitle }}</p>
+</hgroup>
+
+<div class="grid">
+  <article>
+    <header>{{ t.health }}</header>
+    <h2>{{ health.health }}%</h2>
+    <progress value="{{ health.health }}" max="100"></progress>
+    <ul>
+      <li>{{ health.albums }} {{ t.albums }} · {{ health.tracks }} {{ t.tracks }}</li>
+      <li>{{ health.no_year }} {{ t.no_year }}</li>
+      <li>{{ health.unknown_artist }} {{ t.unknown_artist }}</li>
+      <li>{{ health.blank_name + health.generic_name }} {{ t.bad_names }}</li>
+    </ul>
+  </article>
+
+  <article>
+    <header>{{ t.fix_now }}</header>
+    <form hx-post="/library/fix" hx-target="#job" hx-swap="innerHTML">
+      <label>
+        <input type="checkbox" name="pretend" value="true" checked>
+        {{ t.pretend }}
+      </label>
+      <small>{{ t.pretend_help }}</small>
+      <button type="submit">{{ t.fix_now }}</button>
+    </form>
+    <div id="job"></div>
+  </article>
+</div>
+
+<h3>{{ t.runs }}</h3>
+<figure>
+  <table>
+    <thead>
+      <tr><th>#</th><th>{{ t.module }}</th><th>{{ t.status }}</th><th>{{ t.started }}</th><th>{{ t.finished }}</th></tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a href="/library/runs/{{ run.id }}">{{ run.id }}</a></td>
+        <td>{{ run.kind or run.module }}</td>
+        <td>{{ run.status }}</td>
+        <td><small>{{ run.started_at }}</small></td>
+        <td><small>{{ run.finished_at or '…' }}</small></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">{{ t.no_runs }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% endblock %}

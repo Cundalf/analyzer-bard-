@@ -1,0 +1,16 @@
+# Override para Linux: corre Bardo en la red del host.
+#
+# Usalo cuando Ollama escucha sólo en 127.0.0.1 (default de la instalación
+# systemd de Ollama). Con red host, Bardo alcanza Ollama y tu LAN directamente.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.host.yml up -d
+#
+# En este modo no hace falta BARDO_OLLAMA_URL especial: usá
+#   OLLAMA_URL=http://127.0.0.1:11434  (o BARDO_OLLAMA_URL, que lo pisa)
+services:
+  bardo:
+    network_mode: host
+    ports: !reset []
+    extra_hosts: !reset []
+    environment:
+      - OLLAMA_URL=${BARDO_OLLAMA_URL:-http://127.0.0.1:11434}

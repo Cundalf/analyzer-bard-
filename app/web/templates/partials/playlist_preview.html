@@ -1,0 +1,30 @@
+<article>
+  <header>{{ result.playlist_name or 'Preview' }}</header>
+  <p><small>modo: {{ result.mode }} · tool calls: {{ result.tool_calls }} · {{ result.track_ids | length }} temas</small></p>
+
+  {% if result.reasoning %}
+  <details>
+    <summary>{{ t.reasoning }}</summary>
+    <p>{{ result.reasoning }}</p>
+  </details>
+  {% endif %}
+
+  {% if result.track_ids %}
+  <form hx-post="/playlists/save" hx-target="#preview" hx-swap="innerHTML">
+    <input type="hidden" name="name" value="{{ result.playlist_name }}">
+    <input type="hidden" name="track_ids" value="{{ result.track_ids | join(',') }}">
+    <button type="submit">{{ t.save_to_navidrome }}</button>
+  </form>
+  {% endif %}
+
+  {% if result.trace %}
+  <details>
+    <summary>Tools ({{ result.trace | length }})</summary>
+    <ol>
+      {% for step in result.trace %}
+      <li><code>{{ step.tool }}</code> <small>{{ step.arguments }}</small></li>
+      {% endfor %}
+    </ol>
+  </details>
+  {% endif %}
+</article>

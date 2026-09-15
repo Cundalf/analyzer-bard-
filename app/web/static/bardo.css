@@ -1,0 +1,62 @@
+:root {
+  --pico-font-size: 95%;
+}
+
+nav strong {
+  font-size: 1.1rem;
+}
+
+.htmx-indicator {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+.htmx-indicator:not(.htmx-request),
+.htmx-request .htmx-indicator:not(.htmx-request) {
+  display: none;
+}
+
+.htmx-request.htmx-indicator,
+.htmx-request .htmx-indicator {
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.status-badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  background: var(--pico-secondary-background);
+  color: var(--pico-secondary-inverse);
+}
+
+.score {
+  font-size: 0.75rem;
+  color: var(--pico-muted-color);
+}
+
+.old {
+  color: var(--pico-del-color);
+  text-decoration: line-through;
+}
+
+.new {
+  color: var(--pico-ins-color);
+}
+
+.error-box {
+  border-left: 4px solid var(--pico-del-color);
+}
+
+table td {
+  vertical-align: top;
+}
