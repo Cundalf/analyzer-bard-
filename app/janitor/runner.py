@@ -4,9 +4,10 @@ import logging
 import os
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from app.config import Settings, get_settings
 from app.janitor import report as report_mod
@@ -65,11 +66,7 @@ def default_beets_config() -> dict[str, Any]:
             "bardo",
         ],
         "pluginpath": [str(Path(__file__).resolve().parent)],
-        "bardo": {
-            "logpath": os.environ.get(
-                "BARDO_BEETS_LOG", "/data/runs/beets.jsonl"
-            )
-        },
+        "bardo": {"logpath": os.environ.get("BARDO_BEETS_LOG", "/data/runs/beets.jsonl")},
         "subsonic": {
             "url": os.environ.get("SUBSONIC_URL", "http://localhost:4533"),
             "user": os.environ.get("SUBSONIC_USER", "admin"),
@@ -123,6 +120,12 @@ def _bool_opt(config: dict[str, Any], dotpath: str, default: Any) -> Any:
     return node
 
 
+def _last_stderr_line(stderr: str) -> str:
+    """Última línea no vacía del stderr de beets (para el reporte de error)."""
+    lines = [line for line in (stderr or "").splitlines() if line.strip()]
+    return lines[-1] if lines else ""
+
+
 def run_beets(
     music_path: str | Path,
     *,
@@ -140,9 +143,7 @@ def run_beets(
     settings = settings or get_settings()
     beets_bin = shutil.which("beet") or settings.beets_bin
     if not beets_bin:
-        raise JanitorError(
-            "beet no encontrado. Instalá beets (extra 'janitor') o usá Docker."
-        )
+        raise JanitorError("beet no encontrado. Instalá beets (extra 'janitor') o usá Docker.")
 
     env = dict(os.environ)
     env["BEETSDIR"] = settings.beetsdir
@@ -231,8 +232,7 @@ def run_janitor(
     settings = settings or get_settings()
     if not settings.janitor_enabled and not pretend:
         raise JanitorError(
-            "Janitor deshabilitado (JANITOR_ENABLED=false). "
-            "Usá pretend o habilitá Janitor."
+            "Janitor deshabilitado (JANITOR_ENABLED=false). Usá pretend o habilitá Janitor."
         )
     if not settings.music_dir:
         raise JanitorError("MUSIC_DIR vacío: el Janitor necesita acceso a disco")
@@ -259,13 +259,9 @@ def run_janitor(
             if pretend:
                 result.wav = {**summary, "converted": 0}
             else:
-                convert_all(
-                    scan, settings=settings, ffmpeg_bin=settings.ffmpeg_bin or None
-                )
+                convert_all(scan, settings=settings, ffmpeg_bin=settings.ffmpeg_bin or None)
                 result.wav = scan.as_dict()
-                result.wav["converted"] = sum(
-                    1 for f in scan.findings if f.converted
-                )
+                result.wav["converted"] = sum(1 for f in scan.findings if f.converted)
             if progress:
                 progress("wav", result.wav)
         except Exception as exc:
@@ -290,8 +286,7 @@ def run_janitor(
         if beets_out["returncode"] != 0:
             result.status = "error"
             result.errors.append(
-                f"beets rc={beets_out['returncode']}: "
-                f"{beets_out['stderr'].strip().splitlines()[-1] if beets_out['stderr'].strip() else ''}"
+                f"beets rc={beets_out['returncode']}: {_last_stderr_line(beets_out['stderr'])}"
             )
         if progress:
             progress("beets", result.beets)

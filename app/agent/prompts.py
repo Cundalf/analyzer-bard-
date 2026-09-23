@@ -3,7 +3,8 @@
 Los prompts viven en `app.enrich.prompts` (compartidos con el enriquecimiento).
 Este módulo existe para respetar la estructura del spec (`agent/prompts.py`).
 """
-from app.enrich.prompts import (  # noqa: F401
+
+from app.enrich.prompts import (
     AGENT_SYSTEM,
     EXPANSION_SCHEMA,
     EXPANSION_SYSTEM,

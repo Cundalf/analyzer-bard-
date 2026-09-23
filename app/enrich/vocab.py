@@ -4,6 +4,7 @@ Normaliza idiomas a ISO 639-1, países a ISO 3166-1 alpha-2, eras a décadas
 numéricas y energía a un float 0..1. Así "español", "castellano" y "spanish"
 matchean el mismo filtro.
 """
+
 from __future__ import annotations
 
 import re
@@ -351,6 +352,7 @@ def normalize_language(value: Any) -> str | None:
     if re.fullmatch(r"[a-z]{2,3}", key):
         return key
     return None
+
 
 def normalize_languages(values: Any) -> list[str]:
     if values is None:

@@ -24,9 +24,7 @@ async def enrich_album(
     from app.enrich.artist import is_generic_entity, mark_needs_janitor
 
     if is_generic_entity(album_row.get("name")):
-        mark_needs_janitor(
-            conn, "album", navidrome_id, "álbum genérico", hash_payload="generic"
-        )
+        mark_needs_janitor(conn, "album", navidrome_id, "álbum genérico", hash_payload="generic")
         return None
     artist_name = ""
     artist_genres: list[str] = []
@@ -37,9 +35,7 @@ async def enrich_album(
         ).fetchone()
         if artist:
             artist_name = artist["name"] or ""
-            artist_ficha = get_ficha(
-                conn, "artist", artist["navidrome_id"] or artist["id"]
-            )
+            artist_ficha = get_ficha(conn, "artist", artist["navidrome_id"] or artist["id"])
             if artist_ficha:
                 artist_genres = artist_ficha.get("facets", {}).get("genres", [])
         if not artist_genres:

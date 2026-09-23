@@ -5,6 +5,7 @@ Registra listeners en import_task_start (antes), import_task_choice (decisión),
 write (después de escribir tags) e import_task_files (cierre del import).
 Escribe un JSONL con {file, old_tags, new_tags, match_score, album_id, status}.
 """
+
 from __future__ import annotations
 
 import json

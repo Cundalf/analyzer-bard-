@@ -29,13 +29,11 @@ def _hash_inputs(payload: Any) -> str:
 
 
 def save_ficha(conn: Any, ficha: Ficha) -> None:
-    from app.db import facet_upsert, utcnow, fts_upsert
+    from app.db import facet_upsert, fts_upsert, utcnow
     from app.enrich.merge import merge_confidence, merge_description, merge_ficha_facets
 
     previous = get_ficha(conn, ficha.entity_type, ficha.entity_id)
-    facets = merge_ficha_facets(
-        previous["facets"] if previous else None, ficha.facets
-    )
+    facets = merge_ficha_facets(previous["facets"] if previous else None, ficha.facets)
     description = merge_description(
         previous.get("description") if previous else None, ficha.description
     )
@@ -156,9 +154,7 @@ async def enrich_artist(
 ) -> dict[str, Any] | None:
     navidrome_id = artist_row.get("navidrome_id") or artist_row["id"]
     if is_generic_entity(artist_row.get("name")):
-        mark_needs_janitor(
-            conn, "artist", navidrome_id, "artista genérico", hash_payload="generic"
-        )
+        mark_needs_janitor(conn, "artist", navidrome_id, "artista genérico", hash_payload="generic")
         return None
     albums = [
         r["name"]
@@ -171,8 +167,7 @@ async def enrich_artist(
     genres = [
         r["genre"]
         for r in conn.execute(
-            "SELECT DISTINCT genre FROM albums WHERE artist_id = ? "
-            "AND COALESCE(genre, '') != ''",
+            "SELECT DISTINCT genre FROM albums WHERE artist_id = ? AND COALESCE(genre, '') != ''",
             (artist_row["id"],),
         ).fetchall()
     ]

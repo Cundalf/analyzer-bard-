@@ -68,16 +68,13 @@ def tool_schemas(settings: Settings | None = None) -> list[dict[str, Any]]:
                             "type": "array",
                             "items": {"type": "string"},
                             "description": (
-                                "códigos ISO 639-1: es, en, pt, ja... "
-                                "(o nombres, se normalizan)"
+                                "códigos ISO 639-1: es, en, pt, ja... (o nombres, se normalizan)"
                             ),
                         },
                         "countries": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": (
-                                "códigos ISO 3166-1 alpha-2: AR, ES, MX, US..."
-                            ),
+                            "description": ("códigos ISO 3166-1 alpha-2: AR, ES, MX, US..."),
                         },
                         "decades": {
                             "type": "array",
@@ -212,9 +209,7 @@ def validate_track_ids(conn: Any, track_ids: list[str]) -> list[str]:
     return valid
 
 
-async def execute_tool(
-    name: str, arguments: dict[str, Any], ctx: ToolContext
-) -> Any:
+async def execute_tool(name: str, arguments: dict[str, Any], ctx: ToolContext) -> Any:
     conn = ctx.conn
     if name == "search_candidates":
         query = str(arguments.get("query", ""))
@@ -242,17 +237,13 @@ async def execute_tool(
         ]
         try:
             embedding = await ctx.ollama.embed_one(query)
-            results.append(
-                search_vectors(conn, embedding, limit=limit, filters=filters)
-            )
+            results.append(search_vectors(conn, embedding, limit=limit, filters=filters))
         except Exception as exc:
             log.warning("vector search unavailable: %s", exc)
 
         merged = rrf_merge(results)[:limit]
         if not merged:
-            merged = search_by_terms(
-                conn, terms, limit=limit, filters=filters
-            )
+            merged = search_by_terms(conn, terms, limit=limit, filters=filters)
         payload: dict[str, Any] = {
             "count": len(merged),
             "candidates": _candidate_payload(merged),
@@ -269,8 +260,7 @@ async def execute_tool(
         query = str(arguments.get("query", "")).strip()
         pattern = f"%{query}%"
         rows = conn.execute(
-            "SELECT navidrome_id, name FROM artists WHERE name LIKE ? "
-            "ORDER BY name LIMIT 40",
+            "SELECT navidrome_id, name FROM artists WHERE name LIKE ? ORDER BY name LIMIT 40",
             (pattern,),
         ).fetchall()
         return {"artists": [dict(r) for r in rows]}
@@ -306,7 +296,7 @@ async def execute_tool(
             FROM tracks t
             LEFT JOIN albums al ON al.id = t.album_id
             LEFT JOIN artists ar ON ar.id = t.artist_id
-            WHERE {' AND '.join(clauses)}
+            WHERE {" AND ".join(clauses)}
             ORDER BY t.id LIMIT ?
             """,
             params,

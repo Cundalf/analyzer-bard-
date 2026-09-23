@@ -106,9 +106,7 @@ def cmd_enrich(args: argparse.Namespace) -> int:
                 tracks=not args.no_tracks,
                 limit=args.limit,
                 force=args.force,
-                progress=lambda s, p: print(
-                    f"[{s}] {json.dumps(p, ensure_ascii=False)[:200]}"
-                ),
+                progress=lambda s, p: print(f"[{s}] {json.dumps(p, ensure_ascii=False)[:200]}"),
             )
         )
     finally:
@@ -229,9 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("facets", help="inspecciona/rebuild el índice de facetas")
     p.add_argument("--rebuild", action="store_true")
-    p.add_argument(
-        "--entity-type", default="track", choices=["track", "album", "artist"]
-    )
+    p.add_argument("--entity-type", default="track", choices=["track", "album", "artist"])
     p.set_defaults(func=cmd_facets)
 
     p = sub.add_parser("playlist", help="genera una playlist desde un prompt")

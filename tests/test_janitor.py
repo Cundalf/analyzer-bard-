@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests.conftest import seed_library
+
 from app.janitor.report import (
     TagDiff,
-    library_health,
     ingest_into_db,
+    library_health,
     read_jsonl,
     write_jsonl,
 )
 from app.janitor.wav2flac import scan_wavs
-from tests.conftest import seed_library
 
 
 def test_scan_wavs_finds_files(tmp_path: Path):

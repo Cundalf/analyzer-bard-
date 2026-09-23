@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from tests.conftest import FakeOllama, seed_library
 
 from app.index.build import build_index
-from tests.conftest import FakeOllama, seed_library
 
 
 def add_ficha(conn, entity_type, entity_id, facets, description, source="llm"):
@@ -126,3 +126,20 @@ async def test_build_index_does_not_close_injected(conn, settings):
 async def test_build_index_empty_db(conn, settings):
     stats = await build_index(conn, settings=settings, ollama=FakeOllama())
     assert stats == {"total": 0, "embedded": 0, "skipped": 0, "errors": 0}
+
+
+@pytest.mark.anyio
+async def test_build_index_commits_every_25(conn, settings):
+    from app.index.build import build_index
+
+    for i in range(26):
+        conn.execute(
+            """
+            INSERT INTO fichas(entity_type, entity_id, facets, description, confidence, source, content_hash)
+            VALUES ('artist', ?, '{}', ?, 0.9, 'llm', 'h')
+            """,
+            (f"a{i}", f"desc {i}"),
+        )
+    conn.commit()
+    stats = await build_index(conn, settings=settings, ollama=FakeOllama())
+    assert stats["embedded"] == 26

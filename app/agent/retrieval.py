@@ -28,7 +28,7 @@ class FacetFilters:
     concept_album: bool | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "FacetFilters":
+    def from_dict(cls, data: dict[str, Any] | None) -> FacetFilters:
         from app.enrich.vocab import (
             decades_of,
             normalize_countries,
@@ -68,9 +68,7 @@ class FacetFilters:
         if self.include_genres:
             genre_clauses = []
             for genre in self.include_genres:
-                genre_clauses.append(
-                    "al.genre LIKE ? OR " + _facet_sql("genres", [genre])
-                )
+                genre_clauses.append("al.genre LIKE ? OR " + _facet_sql("genres", [genre]))
                 params.append(f"%{genre}%")
                 params.extend(_facet_params("genres", [genre]))
             conditions.append("(" + " OR ".join(genre_clauses) + ")")
@@ -87,25 +85,19 @@ class FacetFilters:
 
         for facet, values in (
             ("languages", self.languages),
-            ("countries", [c for c in self.countries]),
+            ("countries", list(self.countries)),
         ):
             if values:
                 conditions.append(_facet_sql(facet, values))
                 params.extend(_facet_params(facet, values))
 
         if self.decades:
-            conditions.append(
-                _facet_sql("decades", [str(d) for d in self.decades])
-            )
+            conditions.append(_facet_sql("decades", [str(d) for d in self.decades]))
             params.extend(_facet_params("decades", [str(d) for d in self.decades]))
 
         if self.energy_min is not None or self.energy_max is not None:
-            conditions.append(
-                _facet_numeric_sql("energy", self.energy_min, self.energy_max)
-            )
-            params.extend(
-                _facet_numeric_params("energy", self.energy_min, self.energy_max)
-            )
+            conditions.append(_facet_numeric_sql("energy", self.energy_min, self.energy_max))
+            params.extend(_facet_numeric_params("energy", self.energy_min, self.energy_max))
 
         for facet, flag in (
             ("is_instrumental", self.instrumental),
@@ -185,9 +177,7 @@ def _facet_params(facet: str, values: list[str]) -> list[Any]:
     return params
 
 
-def _facet_numeric_refs(
-    facet: str, low: float | None, high: float | None
-) -> tuple[str, list[Any]]:
+def _facet_numeric_refs(facet: str, low: float | None, high: float | None) -> tuple[str, list[Any]]:
     clauses = ["fx.facet = ?", "fx.num IS NOT NULL"]
     extras: list[Any] = []
     if low is not None:
@@ -209,16 +199,12 @@ def _facet_numeric_refs(
     return " OR ".join(sql_parts), params
 
 
-def _facet_numeric_sql(
-    facet: str, low: float | None, high: float | None
-) -> str:
+def _facet_numeric_sql(facet: str, low: float | None, high: float | None) -> str:
     sql, _ = _facet_numeric_refs(facet, low, high)
     return f"({sql})"
 
 
-def _facet_numeric_params(
-    facet: str, low: float | None, high: float | None
-) -> list[Any]:
+def _facet_numeric_params(facet: str, low: float | None, high: float | None) -> list[Any]:
     _, params = _facet_numeric_refs(facet, low, high)
     return params
 
@@ -284,9 +270,7 @@ def _hydrate(conn: Any, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 facets = {}
         if not facets and row.get("album_nid"):
             if row["album_nid"] not in album_fichas:
-                album_fichas[row["album_nid"]] = (
-                    get_ficha(conn, "album", row["album_nid"]) or {}
-                )
+                album_fichas[row["album_nid"]] = get_ficha(conn, "album", row["album_nid"]) or {}
             album_ficha = album_fichas[row["album_nid"]]
             af = album_ficha.get("facets", {})
             facets = {
@@ -295,19 +279,18 @@ def _hydrate(conn: Any, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             }
             if not row.get("description"):
                 row["description"] = album_ficha.get("description", "")
-        if row.get("artist_nid"):
-            if not facets.get("moods") or not facets.get("themes"):
-                if row["artist_nid"] not in artist_fichas:
-                    artist_fichas[row["artist_nid"]] = (
-                        get_ficha(conn, "artist", row["artist_nid"]) or {}
-                    )
-                arf = artist_fichas[row["artist_nid"]].get("facets", {})
-                if not facets.get("moods"):
-                    facets["moods"] = arf.get("moods", [])
-                if not facets.get("themes"):
-                    facets["themes"] = arf.get("lyrical_themes", []) or arf.get(
-                        "references", []
-                    )
+        needs_moods = not facets.get("moods")
+        needs_themes = not facets.get("themes")
+        if row.get("artist_nid") and (needs_moods or needs_themes):
+            if row["artist_nid"] not in artist_fichas:
+                artist_fichas[row["artist_nid"]] = (
+                    get_ficha(conn, "artist", row["artist_nid"]) or {}
+                )
+            arf = artist_fichas[row["artist_nid"]].get("facets", {})
+            if needs_moods:
+                facets["moods"] = arf.get("moods", [])
+            if needs_themes:
+                facets["themes"] = arf.get("lyrical_themes", []) or arf.get("references", [])
         row["moods"] = facets.get("moods", [])
         row["themes"] = facets.get("themes", [])
         enriched.append(_row_to_candidate(row))
@@ -342,9 +325,7 @@ def search_by_terms(
     extra, extra_params = effective.sql()
     params.extend(extra_params)
     params.append(limit)
-    rows = conn.execute(
-        f"{BASE_TRACK_QUERY} WHERE {where}{extra} LIMIT ?", params
-    ).fetchall()
+    rows = conn.execute(f"{BASE_TRACK_QUERY} WHERE {where}{extra} LIMIT ?", params).fetchall()
     return _hydrate(conn, [dict(r) for r in rows])
 
 
@@ -361,9 +342,7 @@ def search_fts(
     from app.db import fts_search
 
     hits = fts_search(conn, query, limit=limit * 3)
-    track_ids = [
-        h["entity_id"] for h in hits if h["entity_type"] == "track"
-    ]
+    track_ids = [h["entity_id"] for h in hits if h["entity_type"] == "track"]
     album_ids = [h["entity_id"] for h in hits if h["entity_type"] == "album"]
     artist_ids = [h["entity_id"] for h in hits if h["entity_type"] == "artist"]
 
@@ -444,9 +423,7 @@ def search_vectors(
         direct = distances.get(candidate["track_id"])
         album_d = distances.get(candidate["album_id"])
         artist_d = distances.get(candidate["artist_id"])
-        distance = min(
-            [d for d in (direct, album_d, artist_d) if d is not None] or [9.0]
-        )
+        distance = min([d for d in (direct, album_d, artist_d) if d is not None] or [9.0])
         candidate["score"] = round(1.0 / (1.0 + distance), 4)
         candidate["source"] = "vector"
     out.sort(key=lambda c: c["score"], reverse=True)
@@ -479,9 +456,7 @@ def _merge_filters(
     return filters
 
 
-def rrf_merge(
-    result_sets: list[list[dict[str, Any]]], k: int = 60
-) -> list[dict[str, Any]]:
+def rrf_merge(result_sets: list[list[dict[str, Any]]], k: int = 60) -> list[dict[str, Any]]:
     """Reciprocal Rank Fusion de varios rankings de candidatos."""
     scores: dict[str, float] = {}
     by_id: dict[str, dict[str, Any]] = {}

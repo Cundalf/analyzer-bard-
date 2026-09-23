@@ -169,3 +169,43 @@ def test_from_db_and_unknown_synonym(conn):
     canon = Canonicalizer.from_db(conn)
     assert canon.canonical("joda") == "fiesta"
     assert canon.canonical("termino-inexistente") == "termino inexistente"
+
+
+def test_canonical_facets_removes_invalid_language():
+    out = canonical_facets({"language": "klingon"}, Canonicalizer())
+    assert "language" not in out
+
+
+def test_canonical_facets_multi_languages():
+    out = canonical_facets({"language": ["es", "english"]}, Canonicalizer())
+    assert out["language"] == "es"
+    assert out["languages"] == ["es", "en"]
+
+
+def test_canonical_facets_removes_invalid_country_and_energy():
+    out = canonical_facets({"country": "Narnia", "energy": "muchísima"}, Canonicalizer())
+    assert "country" not in out
+    assert "energy" not in out
+
+
+def test_canonical_facets_multi_countries():
+    out = canonical_facets({"country": ["AR", "br"]}, Canonicalizer())
+    assert out["country"] == "AR"
+    assert out["countries"] == ["AR", "BR"]
+
+
+def test_canonical_facets_drops_non_list_languages_field():
+    out = canonical_facets({"languages": "es"}, Canonicalizer())
+    assert "languages" not in out
+    assert out["language"] == "es"
+
+
+def test_canonical_facets_drops_non_list_countries_field():
+    out = canonical_facets({"countries": "AR"}, Canonicalizer())
+    assert "countries" not in out
+    assert out["country"] == "AR"
+
+
+def test_canonical_facets_normalizes_energy_ranges():
+    assert canonical_facets({"energy": 8}, Canonicalizer())["energy"] == 0.8
+    assert canonical_facets({"energy": "alta"}, Canonicalizer())["energy"] == 0.75

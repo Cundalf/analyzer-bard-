@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from tests.conftest import FakeSubsonic
 
 from app.config import Settings
 from app.db import connect, init_db
@@ -18,7 +19,6 @@ from app.janitor.runner import (
     run_beets,
     run_janitor,
 )
-from tests.conftest import FakeSubsonic
 
 
 def make_settings(tmp_path: Path, **kwargs) -> Settings:
@@ -40,6 +40,7 @@ def make_settings(tmp_path: Path, **kwargs) -> Settings:
 
 # ------------------------------------------------------------ JanitorResult
 
+
 def test_result_as_dict_empty():
     data = JanitorResult().as_dict()
     assert data["status"] == "ok"
@@ -55,6 +56,7 @@ def test_result_as_dict_with_diff():
 
 # ------------------------------------------------------------ beets config
 
+
 def test_default_beets_config_no_move():
     config = default_beets_config()
     assert config["import"]["move"] is False
@@ -66,7 +68,11 @@ def test_default_beets_config_no_move():
 def test_ensure_beets_config_creates(tmp_path):
     s = make_settings(tmp_path, acoustid_key="KEY")
     target = ensure_beets_config(s)
-    assert target == s.beetsdir_path if hasattr(s, "beetsdir_path") else Path(s.beetsdir) / "config.yaml"
+    assert (
+        target == s.beetsdir_path
+        if hasattr(s, "beetsdir_path")
+        else Path(s.beetsdir) / "config.yaml"
+    )
     assert target.exists()
     import yaml
 
@@ -98,6 +104,7 @@ def test_ensure_beets_config_missing_dir(tmp_path):
 
 # ------------------------------------------------------------ run_beets
 
+
 def test_run_beets_no_binary(tmp_path, monkeypatch):
     s = make_settings(tmp_path, beets_bin="")
     monkeypatch.setattr("app.janitor.runner.shutil.which", lambda n: None)
@@ -118,8 +125,9 @@ def test_run_beets_import_command(tmp_path, monkeypatch):
 
     monkeypatch.setattr("app.janitor.runner.subprocess.run", fake_run)
     s = make_settings(tmp_path, beets_bin="/usr/bin/beet")
-    out = run_beets(s.music_dir, settings=s, pretend=True, timid=True,
-                    logpath=Path("/tmp/log.jsonl"))
+    out = run_beets(
+        s.music_dir, settings=s, pretend=True, timid=True, logpath=Path("/tmp/log.jsonl")
+    )
     assert out["returncode"] == 0
     assert out["cmd"] == ["/usr/bin/beet", "import", "-p", "-t", s.music_dir]
     assert captured["env"]["BEETSDIR"] == s.beetsdir
@@ -172,6 +180,7 @@ def test_run_beets_no_cwd_when_no_beetsdir(tmp_path, monkeypatch):
 
 # ------------------------------------------------------------ rescan
 
+
 def test_rescan_with_injected_client(tmp_path):
     s = make_settings(tmp_path)
     result = rescan_navidrome(s, client=FakeSubsonic())
@@ -200,6 +209,7 @@ def test_rescan_creates_and_closes_client(tmp_path, monkeypatch):
 
 
 # ------------------------------------------------------------ run_janitor
+
 
 def test_run_janitor_disabled(tmp_path):
     s = make_settings(tmp_path, janitor_enabled=False)
@@ -234,9 +244,15 @@ def test_run_janitor_full_flow(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(cmd, 0, stdout="ok", stderr="")
 
     monkeypatch.setattr("app.janitor.runner.subprocess.run", fake_run)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     conn = connect(tmp_path / "data" / "bardo.db")
     init_db(conn)
     events = []
@@ -259,18 +275,30 @@ def test_run_janitor_full_flow(tmp_path, monkeypatch):
 
 def test_run_janitor_skip_wav(tmp_path, monkeypatch):
     s = make_settings(tmp_path)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     result = run_janitor(settings=s, pretend=True, skip_wav=True, do_rescan=False)
     assert result.wav == {"skipped": True}
 
 
 def test_run_janitor_beets_failure_marks_error(tmp_path, monkeypatch):
     s = make_settings(tmp_path)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 1, "stdout": "", "stderr": "fatal: algo\nsegunda linea",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 1,
+            "stdout": "",
+            "stderr": "fatal: algo\nsegunda linea",
+        },
+    )
     conn = connect(tmp_path / "data" / "bardo.db")
     init_db(conn)
     result = run_janitor(settings=s, pretend=False, skip_wav=True, do_rescan=False, conn=conn)
@@ -283,9 +311,15 @@ def test_run_janitor_beets_failure_marks_error(tmp_path, monkeypatch):
 
 def test_run_janitor_beets_failure_empty_stderr(tmp_path, monkeypatch):
     s = make_settings(tmp_path)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 2, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 2,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     result = run_janitor(settings=s, pretend=False, skip_wav=True, do_rescan=False)
     assert result.status == "error"
     assert "rc=2" in result.errors[-1]
@@ -309,9 +343,15 @@ def test_run_janitor_wav_scan_error(tmp_path, monkeypatch):
         "app.janitor.runner.scan_wavs",
         lambda music: (_ for _ in ()).throw(OSError("disco roto")),
     )
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     result = run_janitor(settings=s, pretend=True, do_rescan=False)
     assert any("disco roto" in e for e in result.errors)
 
@@ -348,17 +388,29 @@ def test_run_janitor_reads_jsonl_and_ingests(tmp_path, monkeypatch):
 
 def test_run_janitor_rescan_success_and_failure(tmp_path, monkeypatch):
     s = make_settings(tmp_path)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     result = run_janitor(
-        settings=s, pretend=False, skip_wav=True, do_rescan=True,
+        settings=s,
+        pretend=False,
+        skip_wav=True,
+        do_rescan=True,
         client=FakeSubsonic(),
     )
     assert result.rescan["ok"] is True
 
     result2 = run_janitor(
-        settings=s, pretend=False, skip_wav=True, do_rescan=True,
+        settings=s,
+        pretend=False,
+        skip_wav=True,
+        do_rescan=True,
         client=FakeSubsonic(fail=True),
     )
     assert any("rescan" in e for e in result2.errors)
@@ -366,9 +418,15 @@ def test_run_janitor_rescan_success_and_failure(tmp_path, monkeypatch):
 
 def test_run_janitor_pretend_skips_rescan(tmp_path, monkeypatch):
     s = make_settings(tmp_path)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     called = {"n": 0}
 
     def fake_rescan(*a, **k):
@@ -382,9 +440,15 @@ def test_run_janitor_pretend_skips_rescan(tmp_path, monkeypatch):
 
 def test_run_janitor_no_run_id_without_conn(tmp_path, monkeypatch):
     s = make_settings(tmp_path)
-    monkeypatch.setattr("app.janitor.runner.run_beets", lambda *a, **k: {
-        "cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": "",
-    })
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
     result = run_janitor(settings=s, pretend=True, skip_wav=True, do_rescan=False)
     assert result.run_id is None
     assert result.beets["logpath"].endswith("beets_manual.jsonl")
@@ -405,3 +469,115 @@ def test_run_janitor_report_read_error(tmp_path, monkeypatch):
     )
     result = run_janitor(settings=s, pretend=False, skip_wav=True, do_rescan=False)
     assert any("jsonl roto" in e for e in result.errors)
+
+
+def test_bool_opt_helper(tmp_path):
+    from app.janitor.runner import _bool_opt
+
+    config = {"a": {"b": True}}
+    assert _bool_opt(config, "a.b", False) is True
+    assert _bool_opt(config, "a.c", "def") == "def"
+    assert _bool_opt(config, "x.y.z", 1) == 1
+    assert _bool_opt({}, "a", 2) == 2
+
+
+def test_run_janitor_converts_wav_with_settings_bin(tmp_path, monkeypatch):
+    from app.db import connect, init_db
+    from app.janitor.runner import run_janitor
+
+    music = tmp_path / "music"
+    music.mkdir()
+    (music / "a.wav").write_bytes(b"RIFF")
+    beetsdir = tmp_path / "config"
+    beetsdir.mkdir()
+    script = tmp_path / "myffmpeg"
+    script.write_text(
+        '#!/bin/sh\nout=\'\'\nfor a in "$@"; do out="$a"; done\nprintf \'fLaC\' > "$out"\n'
+    )
+    script.chmod(0o755)
+    s = Settings(
+        data_dir=str(tmp_path / "data"),
+        music_dir=str(music),
+        beetsdir=str(beetsdir),
+        janitor_enabled=True,
+        ffmpeg_bin=str(script),
+    )
+    s.ensure_dirs()
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
+    conn = connect(tmp_path / "data" / "bardo.db")
+    init_db(conn)
+    result = run_janitor(settings=s, conn=conn, do_rescan=False)
+    assert result.wav["converted"] == 1
+    conn.close()
+
+
+def test_run_janitor_rescan_progress(tmp_path, monkeypatch):
+    from app.janitor.runner import run_janitor
+
+    music = tmp_path / "music"
+    music.mkdir()
+    beetsdir = tmp_path / "config"
+    beetsdir.mkdir()
+    s = Settings(
+        data_dir=str(tmp_path / "data"),
+        music_dir=str(music),
+        beetsdir=str(beetsdir),
+        janitor_enabled=True,
+    )
+    s.ensure_dirs()
+    monkeypatch.setattr(
+        "app.janitor.runner.run_beets",
+        lambda *a, **k: {
+            "cmd": ["beet"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+    )
+    events = []
+    run_janitor(
+        settings=s,
+        client=FakeSubsonic(),
+        do_rescan=True,
+        progress=lambda stage, payload: events.append(stage),
+    )
+    assert "rescan" in events
+
+
+def test_run_janitor_no_ingest_without_run_id(tmp_path, monkeypatch):
+    from app.janitor.runner import run_janitor
+
+    music = tmp_path / "music"
+    music.mkdir()
+    beetsdir = tmp_path / "config"
+    beetsdir.mkdir()
+    s = Settings(
+        data_dir=str(tmp_path / "data"),
+        music_dir=str(music),
+        beetsdir=str(beetsdir),
+        janitor_enabled=True,
+    )
+    s.ensure_dirs()
+    from app.janitor.report import TagDiff, write_jsonl
+
+    def fake_beets(*args, **kwargs):
+        logpath = kwargs["logpath"]
+        logpath.parent.mkdir(parents=True, exist_ok=True)
+        write_jsonl(
+            type("R", (), {"items": [TagDiff(file="/a", old_tags={}, new_tags={})]})(),
+            logpath,
+        )
+        return {"cmd": ["beet"], "returncode": 0, "stdout": "", "stderr": ""}
+
+    monkeypatch.setattr("app.janitor.runner.run_beets", fake_beets)
+    result = run_janitor(settings=s, conn=None, pretend=False, skip_wav=True, do_rescan=False)
+    assert len(result.diffs) == 1
+    assert result.run_id is None

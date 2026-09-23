@@ -7,16 +7,18 @@ un hecho.
 Regla general: nada válido se pierde. Un valor genérico ("Unknown",
 "Various Artists") no es información y nunca pisa ni entra.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from app.enrich.generic import filter_valid, is_generic
 from app.enrich.vocab import (
     normalize_countries,
-    normalize_languages,
     normalize_energy,
+    normalize_languages,
 )
 
 log = logging.getLogger("bardo.enrich.merge")
@@ -118,9 +120,7 @@ def apply_hard_genre_to_artist(
     if not hard:
         return out
     raw_llm = out.get("genres")
-    llm_genres = (
-        filter_valid(raw_llm) if isinstance(raw_llm, list) else []
-    )
+    llm_genres = filter_valid(raw_llm) if isinstance(raw_llm, list) else []
     preferred = [g for g in hard if g.lower() in {x.lower() for x in llm_genres}]
     rest = [g for g in hard if g not in preferred]
     merged = filter_valid(preferred + rest + llm_genres)[:12]
@@ -245,9 +245,7 @@ def _protected_fields(old: dict[str, Any]) -> set[str]:
     return protected
 
 
-def merge_description(
-    old: str | None, new: str | None
-) -> str:
+def merge_description(old: str | None, new: str | None) -> str:
     """La descripción nueva sólo gana si aporta algo; nunca borra una válida."""
     cleaned_new = _clean(new)
     if cleaned_new and not is_generic(cleaned_new):

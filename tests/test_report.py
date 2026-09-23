@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tests.conftest import seed_library
+
 from app.janitor.report import (
     RunReport,
     TagDiff,
@@ -11,10 +13,9 @@ from app.janitor.report import (
     read_jsonl,
     write_jsonl,
 )
-from tests.conftest import seed_library
-
 
 # ------------------------------------------------------------ TagDiff
+
 
 def test_tagdiff_changed_and_fields():
     diff = TagDiff(
@@ -38,7 +39,14 @@ def test_tagdiff_added_and_removed_fields():
 
 
 def test_tagdiff_roundtrip():
-    diff = TagDiff(file="/a", old_tags={"a": 1}, new_tags={"a": 2}, match_score=0.5, album_id="al", status="APPLY")
+    diff = TagDiff(
+        file="/a",
+        old_tags={"a": 1},
+        new_tags={"a": 2},
+        match_score=0.5,
+        album_id="al",
+        status="APPLY",
+    )
     restored = TagDiff.from_dict(diff.as_dict())
     assert restored == diff
 
@@ -53,11 +61,14 @@ def test_tagdiff_from_dict_defaults():
 
 # ------------------------------------------------------------ JSONL
 
+
 def test_write_and_read_jsonl(tmp_path: Path):
-    report = RunReport(items=[
-        TagDiff(file="/a", old_tags={}, new_tags={"artist": "X"}),
-        TagDiff(file="/b", old_tags={}, new_tags={}, status="ASIS"),
-    ])
+    report = RunReport(
+        items=[
+            TagDiff(file="/a", old_tags={}, new_tags={"artist": "X"}),
+            TagDiff(file="/b", old_tags={}, new_tags={}, status="ASIS"),
+        ]
+    )
     path = write_jsonl(report, tmp_path / "sub" / "run.jsonl")
     assert path.exists()
     loaded = read_jsonl(path)
@@ -103,7 +114,14 @@ def test_report_summary_empty():
 
 def test_ingest_into_db(conn):
     diffs = [
-        TagDiff(file="/a", old_tags={"x": 1}, new_tags={"x": 2}, match_score=0.9, album_id="al", status="APPLY"),
+        TagDiff(
+            file="/a",
+            old_tags={"x": 1},
+            new_tags={"x": 2},
+            match_score=0.9,
+            album_id="al",
+            status="APPLY",
+        ),
         TagDiff(file="/b", old_tags={}, new_tags={}, status="SKIP"),
     ]
     count = ingest_into_db(conn, 7, diffs)
@@ -120,6 +138,7 @@ def test_ingest_empty(conn):
 
 
 # ------------------------------------------------------------ health
+
 
 def test_library_health_empty(conn):
     health = library_health(conn)

@@ -7,10 +7,12 @@ Cuidado con los falsos positivos: "Unknown Mortal Orchestra" es una banda
 real. Por eso se comparan valores exactos (normalizados), no substrings,
 salvo los corchetes explícitos tipo "[Unknown Artist]".
 """
+
 from __future__ import annotations
 
 import unicodedata
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 GENERIC_EXACT: frozenset[str] = frozenset(
     {
@@ -44,7 +46,6 @@ GENERIC_EXACT: frozenset[str] = frozenset(
         "compilation",
         "compilado",
         "untitled",
-        "sin titulo",
         "no title",
         "track",
         "track 00",
@@ -103,24 +104,21 @@ def is_generic(value: Any) -> bool:
         return True
     if any(text.startswith(prefix) for prefix in GENERIC_PREFIXES):
         return True
-    if _is_track_number(text):
-        return True
-    return False
+    return bool(_is_track_number(text))
 
 
 def _is_track_number(text: str) -> bool:
     """'track 01', 'pista 3', '01', '04 -' son placeholders, no títulos."""
     import re
 
-    match = re.fullmatch(
-        r"(?:track|pista|track no\.?|cancion|song)?\s*0*\d{1,3}\s*[-.]?",
-        text,
+    # Un número suelto de hasta 3 cifras es placeholder ("1979" tiene 4 y se
+    # conserva: podría ser un título real).
+    return bool(
+        re.fullmatch(
+            r"(?:track|pista|track no\.?|cancion|song)?\s*0*\d{1,3}\s*[-.]?",
+            text,
+        )
     )
-    if not match:
-        return False
-    # Un número suelto de 3 cifras podría ser un título ("1979"); se acepta
-    # como genérico igual porque un título numérico puro es rarísimo.
-    return True
 
 
 def is_valid(value: Any) -> bool:

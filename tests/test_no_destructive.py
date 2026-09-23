@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from tests.conftest import seed_library
 
 from app.enrich.artist import (
     Ficha,
@@ -14,10 +15,9 @@ from app.enrich.merge import (
     merge_description,
     merge_ficha_facets,
 )
-from tests.conftest import seed_library
-
 
 # ------------------------------------------------------------ merge_ficha_facets
+
 
 def test_merge_lists_union_no_loss():
     old = {"moods": ["epico"], "themes": ["cerveza"]}
@@ -33,9 +33,7 @@ def test_merge_lists_dedupe():
 
 
 def test_merge_lists_drop_generics():
-    merged = merge_ficha_facets(
-        {"moods": ["epico"]}, {"moods": ["unknown", "N/A", "fiesta"]}
-    )
+    merged = merge_ficha_facets({"moods": ["epico"]}, {"moods": ["unknown", "N/A", "fiesta"]})
     assert merged["moods"] == ["epico", "fiesta"]
 
 
@@ -138,6 +136,7 @@ def test_merge_description():
 
 # ------------------------------------------------------------ save_ficha
 
+
 def test_save_ficha_preserves_previous_fields(conn):
     save_ficha(conn, Ficha("artist", "a1", {"moods": ["epico"]}, "desc vieja", 0.9, "llm", "h1"))
     save_ficha(conn, Ficha("artist", "a1", {"themes": ["cerveza"]}, "", 0.0, "llm", "h2"))
@@ -176,6 +175,7 @@ def test_save_ficha_respects_measured_language(conn):
 
 # ------------------------------------------------------------ needs_janitor
 
+
 def test_mark_needs_janitor(conn):
     mark_needs_janitor(conn, "artist", "a1", "artista genérico", hash_payload="x")
     ficha = get_ficha(conn, "artist", "a1")
@@ -201,9 +201,10 @@ def test_is_generic_entity():
 
 @pytest.mark.anyio
 async def test_enrich_artist_skips_generic(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.artist import enrich_artist
     from app.enrich.canonicalize import Canonicalizer
-    from tests.conftest import FakeOllama
 
     ollama = FakeOllama()
     row = {"id": "artist:u", "navidrome_id": "u", "name": "[Unknown Artist]"}
@@ -216,9 +217,10 @@ async def test_enrich_artist_skips_generic(conn, settings):
 
 @pytest.mark.anyio
 async def test_enrich_album_skips_generic(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.album import enrich_album
     from app.enrich.canonicalize import Canonicalizer
-    from tests.conftest import FakeOllama
 
     ollama = FakeOllama()
     row = {"id": "album:u", "navidrome_id": "u", "name": "[Unknown Album]"}
@@ -230,8 +232,9 @@ async def test_enrich_album_skips_generic(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_reports_pending(conn, settings):
-    from app.enrich.pipeline import enrich_library
     from tests.conftest import FakeOllama
+
+    from app.enrich.pipeline import enrich_library
 
     seed_library(conn)
     conn.execute("UPDATE artists SET name = '[Unknown Artist]' WHERE navidrome_id = 'a1'")
@@ -259,6 +262,7 @@ def test_library_health_counts_pending(conn):
 
 
 # ------------------------------------------------------------ ramas restantes
+
 
 def test_filter_valid_rejects_non_iterable():
     from app.enrich.generic import filter_valid
@@ -305,8 +309,9 @@ def test_merge_confidence_invalid_old():
 def test_pipeline_pending_album(conn, settings):
     import asyncio
 
-    from app.enrich.pipeline import enrich_library
     from tests.conftest import FakeOllama
+
+    from app.enrich.pipeline import enrich_library
 
     seed_library(conn)
     conn.execute("UPDATE albums SET name = '[Unknown Album]' WHERE navidrome_id = 'al1'")

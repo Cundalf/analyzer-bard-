@@ -38,3 +38,22 @@ def test_rerank_messages_unicode_preserved():
     candidates = [{"track_id": "t1", "title": "Ñandú"}]
     messages = rerank_messages("taberna", candidates, size=5)
     assert "Ñandú" in messages[1]["content"]
+
+
+def test_rerank_messages_with_moods_and_reference():
+    from app.enrich.prompts import rerank_messages
+
+    messages = rerank_messages(
+        "taberna", [{"track_id": "t1"}], 10, moods=["fiesta"], reference="tolkien"
+    )
+    content = messages[1]["content"]
+    assert "Moods buscados: fiesta" in content
+    assert "Referencia del mundo: tolkien" in content
+
+
+def test_rerank_messages_without_extras():
+    from app.enrich.prompts import rerank_messages
+
+    content = rerank_messages("taberna", [], 5)[1]["content"]
+    assert "Moods" not in content
+    assert "Referencia" not in content

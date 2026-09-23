@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ 'es' if request.headers.get('accept-language', '').startswith('es') else 'en' }}" data-theme="dark">
+<html lang="{{ lang or 'es' }}" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +11,7 @@
 <body>
   <nav class="container">
     <ul>
-      <li><a href="/"><strong>🎧 Bardo</strong> <small>v{{ version or '0.1.0' }}</small></a></li>
+      <li><a href="/"><strong>🎧 Bardo</strong> <small>v{{ version }}</small></a></li>
     </ul>
     <ul>
       <li><a href="/library">{{ t.library }}</a></li>
@@ -25,7 +25,7 @@
   </main>
   <footer class="container">
     <small>
-      100% local · <a href="https://github.com/cundalf/bardo">GitHub</a> · MIT
+      100% local · <a href="https://github.com/Cundalf/analyzer-bard-">GitHub</a> · MIT
     </small>
   </footer>
 </body>

@@ -25,11 +25,18 @@ BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "web" / "templates"))
 
 app = FastAPI(title="Bardo", version=__version__)
-app.mount(
-    "/static", StaticFiles(directory=str(BASE_DIR / "web" / "static")), name="static"
-)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "web" / "static")), name="static")
 
 _jobs: dict[str, dict[str, Any]] = {}
+
+
+def _load_json(value: Any) -> dict[str, Any]:
+    """JSON de un campo de la DB, tolerante a basura."""
+    try:
+        data = json.loads(value or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _ctx(request: Request, **extra: Any) -> dict[str, Any]:
@@ -157,11 +164,7 @@ def run_detail(request: Request, run_id: int) -> HTMLResponse:
             }
         except json.JSONDecodeError:
             entry["changed"] = {}
-    stats = {}
-    try:
-        stats = json.loads(run["stats"] or "{}")
-    except json.JSONDecodeError:
-        pass
+    stats = _load_json(run["stats"])
     return templates.TemplateResponse(
         request,
         "run_detail.html",
@@ -301,10 +304,7 @@ def facets_page(request: Request) -> HTMLResponse:
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request) -> HTMLResponse:
     c = conn()
-    stored = {
-        r["key"]: r["value"]
-        for r in c.execute("SELECT key, value FROM settings").fetchall()
-    }
+    stored = {r["key"]: r["value"] for r in c.execute("SELECT key, value FROM settings").fetchall()}
     settings = runtime_settings(c)
     return templates.TemplateResponse(
         request,

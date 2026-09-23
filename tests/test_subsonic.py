@@ -49,6 +49,7 @@ def client(settings):
 
 # ---------------------------------------------------------------- modelos
 
+
 def test_track_from_json_full():
     t = Track.from_json(
         {
@@ -94,9 +95,7 @@ def test_album_from_json_name_and_title_fallback():
 
 
 def test_album_from_json_songs_and_defaults():
-    a = Album.from_json(
-        {"id": "al", "name": "N", "songCount": "3", "song": [{"id": "t1"}]}
-    )
+    a = Album.from_json({"id": "al", "name": "N", "songCount": "3", "song": [{"id": "t1"}]})
     assert a.song_count == 3
     assert a.duration == 0
     assert a.songs[0].id == "t1"
@@ -116,6 +115,7 @@ def test_playlist_from_json_entries():
 
 
 # ---------------------------------------------------------------- auth/url
+
 
 def test_auth_params_token_is_md5_pass_salt(client):
     params = client._auth_params()
@@ -157,6 +157,7 @@ def test_context_manager_closes(settings):
 
 # ---------------------------------------------------------------- request
 
+
 def test_ping_ok_and_auth(client):
     def handler(request):
         assert request.url.params["u"] == "admin"
@@ -185,9 +186,7 @@ def test_failed_without_code(client):
 
 
 def test_missing_subsonic_response_key(client):
-    client._client = httpx.Client(
-        transport=mock_transport(lambda r: httpx.Response(200, json={}))
-    )
+    client._client = httpx.Client(transport=mock_transport(lambda r: httpx.Response(200, json={})))
     assert client.ping() == {}
 
 
@@ -261,6 +260,7 @@ def test_subsonic_error_does_not_retry(client):
 
 
 # ---------------------------------------------------------------- lectura
+
 
 def test_get_artists_multiple_indexes_and_empty(client):
     def handler(request):
@@ -399,6 +399,7 @@ def test_get_playlists_and_playlist(client):
 
 # ---------------------------------------------------------------- escritura
 
+
 def test_create_playlist_repeated_song_ids(client):
     captured = []
 
@@ -502,10 +503,13 @@ def test_get_scan_status_missing_key(client):
 
 # ---------------------------------------------------------------- sync
 
+
 def make_sync_handler(pages, artist_index=None, album_details=None):
-    artist_index = artist_index if artist_index is not None else [
-        {"artist": [{"id": "a1", "name": "Wind Rose", "albumCount": 1}]}
-    ]
+    artist_index = (
+        artist_index
+        if artist_index is not None
+        else [{"artist": [{"id": "a1", "name": "Wind Rose", "albumCount": 1}]}]
+    )
     album_details = album_details or {}
 
     def handler(request):
@@ -531,13 +535,31 @@ def sync_client(settings, handler) -> SubsonicClient:
 
 def test_sync_library_full(settings, conn):
     handler = make_sync_handler(
-        {0: [{"id": "al1", "name": "Wintersaga", "artist": "Wind Rose", "artistId": "a1", "year": 2019, "genre": "folk metal", "songCount": 1}]},
+        {
+            0: [
+                {
+                    "id": "al1",
+                    "name": "Wintersaga",
+                    "artist": "Wind Rose",
+                    "artistId": "a1",
+                    "year": 2019,
+                    "genre": "folk metal",
+                    "songCount": 1,
+                }
+            ]
+        },
         album_details={
             "al1": {
                 "id": "al1",
                 "name": "Wintersaga",
                 "song": [
-                    {"id": "t1", "title": "Drunken Dwarves", "albumId": "al1", "artistId": "a1", "duration": 240},
+                    {
+                        "id": "t1",
+                        "title": "Drunken Dwarves",
+                        "albumId": "al1",
+                        "artistId": "a1",
+                        "duration": 240,
+                    },
                     {"id": "t2", "title": "Mine Mine Mine!", "albumId": "al1", "artistId": "a1"},
                 ],
             }
@@ -565,7 +587,9 @@ def test_sync_library_incremental_skips_existing_tracks(settings, conn):
         if endpoint == "getAlbumList2.view":
             offset = int(request.url.params.get("offset", 0))
             if offset == 0:
-                return envelope({"albumList2": {"album": [{"id": "al1", "name": "A", "artistId": "a1"}]}})
+                return envelope(
+                    {"albumList2": {"album": [{"id": "al1", "name": "A", "artistId": "a1"}]}}
+                )
             return envelope({"albumList2": {"album": []}})
         if endpoint == "getAlbum.view":
             calls["album_fetch"] += 1
@@ -631,8 +655,10 @@ def test_sync_library_track_with_different_artist(settings, conn):
         album_details={
             "al1": {
                 "id": "al1",
-                "song": [{"id": "t1", "title": "Feat", "albumId": "al1", "artistId": "a2"},
-                         {"id": "t2", "title": "Main", "albumId": "al1", "artistId": "a1"}],
+                "song": [
+                    {"id": "t1", "title": "Feat", "albumId": "al1", "artistId": "a2"},
+                    {"id": "t2", "title": "Main", "albumId": "al1", "artistId": "a1"},
+                ],
             }
         },
     )
@@ -640,7 +666,10 @@ def test_sync_library_track_with_different_artist(settings, conn):
     sync_library(conn, client)
     feat = conn.execute("SELECT artist_id FROM tracks WHERE navidrome_id='t1'").fetchone()
     assert feat["artist_id"] == "artist:a2"
-    assert conn.execute("SELECT COUNT(*) AS n FROM artists WHERE navidrome_id='a2'").fetchone()["n"] == 1
+    assert (
+        conn.execute("SELECT COUNT(*) AS n FROM artists WHERE navidrome_id='a2'").fetchone()["n"]
+        == 1
+    )
     main = conn.execute("SELECT artist_id FROM tracks WHERE navidrome_id='t2'").fetchone()
     assert main["artist_id"] == "artist:a1"
 
@@ -675,7 +704,20 @@ def test_sync_library_resync_updates_metadata(settings, conn):
         if endpoint == "getAlbumList2.view":
             offset = int(request.url.params.get("offset", 0))
             if offset == 0:
-                return envelope({"albumList2": {"album": [{"id": "al1", "name": state["name"], "artistId": "a1", "year": state["year"]}]}})
+                return envelope(
+                    {
+                        "albumList2": {
+                            "album": [
+                                {
+                                    "id": "al1",
+                                    "name": state["name"],
+                                    "artistId": "a1",
+                                    "year": state["year"],
+                                }
+                            ]
+                        }
+                    }
+                )
             return envelope({"albumList2": {"album": []}})
         return envelope({})
 
@@ -695,7 +737,9 @@ def test_sync_library_artist_rename(settings, conn):
     def handler(request):
         endpoint = request.url.path.rsplit("/", 1)[-1]
         if endpoint == "getArtists.view":
-            return envelope({"artists": {"index": [{"artist": [{"id": "a1", "name": state["name"]}]}]}})
+            return envelope(
+                {"artists": {"index": [{"artist": [{"id": "a1", "name": state["name"]}]}]}}
+            )
         if endpoint == "getAlbumList2.view":
             return envelope({"albumList2": {"album": state["album"]}})
         return envelope({})
@@ -728,3 +772,181 @@ def test_sync_library_empty_library(settings, conn):
     client = sync_client(settings, make_sync_handler({}, artist_index=[]))
     stats = sync_library(conn, client)
     assert stats == {"artists": 0, "albums": 0, "tracks": 0}
+
+
+def test_sync_track_without_album_id(settings, conn):
+    import httpx
+
+    from app.subsonic import SubsonicClient, sync_library
+
+    def handler(request):
+        endpoint = request.url.path.rsplit("/", 1)[-1]
+        if endpoint == "getArtists.view":
+            return httpx.Response(
+                200, json={"subsonic-response": {"status": "ok", "artists": {"index": []}}}
+            )
+        if endpoint == "getAlbumList2.view":
+            offset = int(request.url.params.get("offset", 0))
+            payload = [{"id": "al1", "name": "A", "artistId": "a1"}] if offset == 0 else []
+            return httpx.Response(
+                200, json={"subsonic-response": {"status": "ok", "albumList2": {"album": payload}}}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "subsonic-response": {
+                    "status": "ok",
+                    "album": {"id": "al1", "song": [{"id": "t1", "title": "S", "artistId": "a1"}]},
+                }
+            },
+        )
+
+    client = SubsonicClient(settings)
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+    sync_library(conn, client)
+    track = conn.execute("SELECT album_id FROM tracks WHERE navidrome_id='t1'").fetchone()
+    assert track["album_id"] is None
+
+
+def test_sync_track_artist_empty_string(settings, conn):
+    import httpx
+
+    from app.subsonic import SubsonicClient, sync_library
+
+    def handler(request):
+        endpoint = request.url.path.rsplit("/", 1)[-1]
+        if endpoint == "getArtists.view":
+            return httpx.Response(
+                200, json={"subsonic-response": {"status": "ok", "artists": {"index": []}}}
+            )
+        if endpoint == "getAlbumList2.view":
+            offset = int(request.url.params.get("offset", 0))
+            payload = [{"id": "al1", "name": "A", "artistId": "a1"}] if offset == 0 else []
+            return httpx.Response(
+                200, json={"subsonic-response": {"status": "ok", "albumList2": {"album": payload}}}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "subsonic-response": {
+                    "status": "ok",
+                    "album": {
+                        "id": "al1",
+                        "song": [{"id": "t1", "albumId": "al1", "artistId": ""}],
+                    },
+                }
+            },
+        )
+
+    client = SubsonicClient(settings)
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+    sync_library(conn, client)
+    track = conn.execute("SELECT artist_id FROM tracks WHERE navidrome_id='t1'").fetchone()
+    # sin artista propio, hereda el artista del álbum
+    assert track["artist_id"] == "artist:a1"
+
+
+def test_sync_track_reuses_existing_artist(settings, conn):
+    import httpx
+
+    from app.subsonic import SubsonicClient, sync_library
+
+    def handler(request):
+        endpoint = request.url.path.rsplit("/", 1)[-1]
+        if endpoint == "getArtists.view":
+            return httpx.Response(
+                200,
+                json={
+                    "subsonic-response": {
+                        "status": "ok",
+                        "artists": {"index": [{"artist": [{"id": "a2", "name": "Guest"}]}]},
+                    }
+                },
+            )
+        if endpoint == "getAlbumList2.view":
+            offset = int(request.url.params.get("offset", 0))
+            payload = [{"id": "al1", "name": "A", "artistId": "a1"}] if offset == 0 else []
+            return httpx.Response(
+                200,
+                json={"subsonic-response": {"status": "ok", "albumList2": {"album": payload}}},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "subsonic-response": {
+                    "status": "ok",
+                    "album": {
+                        "id": "al1",
+                        "song": [
+                            {
+                                "id": "t1",
+                                "albumId": "al1",
+                                # artista invitado ya existente en el índice
+                                "artistId": "a2",
+                            }
+                        ],
+                    },
+                }
+            },
+        )
+
+    client = SubsonicClient(settings)
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+    sync_library(conn, client)
+    track = conn.execute("SELECT artist_id FROM tracks WHERE navidrome_id='t1'").fetchone()
+    assert track["artist_id"] == "artist:a2"
+    assert conn.execute("SELECT COUNT(*) AS n FROM artists").fetchone()["n"] == 2
+
+
+def test_get_lyrics_parses_value(settings, monkeypatch):
+    from app.subsonic import SubsonicClient
+
+    client = SubsonicClient(settings)
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda endpoint, **kwargs: {"lyrics": {"value": "la letra"}},
+    )
+    assert client.get_lyrics("A", "T") == "la letra"
+    client.close()
+
+
+def test_get_lyrics_empty(settings, monkeypatch):
+    from app.subsonic import SubsonicClient
+
+    client = SubsonicClient(settings)
+    monkeypatch.setattr(client, "_request", lambda endpoint, **kwargs: {})
+    assert client.get_lyrics("A", "T") == ""
+    client.close()
+
+
+def test_get_lyrics_by_song_id_structured(settings, monkeypatch):
+    from app.subsonic import SubsonicClient
+
+    payload = {
+        "lyricsList": {
+            "structuredLyrics": [
+                {"line": [{"value": "linea 1"}, {"value": "linea 2"}]},
+                {"line": [{"value": "linea 3"}]},
+            ]
+        }
+    }
+    client = SubsonicClient(settings)
+    monkeypatch.setattr(client, "_request", lambda endpoint, **kwargs: payload)
+    assert client.get_lyrics_by_song_id("t1") == "linea 1\nlinea 2\nlinea 3"
+    client.close()
+
+
+def test_get_lyrics_by_song_id_empty_and_garbage(settings, monkeypatch):
+    from app.subsonic import SubsonicClient
+
+    client = SubsonicClient(settings)
+    monkeypatch.setattr(client, "_request", lambda endpoint, **kwargs: {})
+    assert client.get_lyrics_by_song_id("t1") == ""
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda endpoint, **kwargs: {"lyricsList": {"structuredLyrics": [{"line": []}, "basura"]}},
+    )
+    assert client.get_lyrics_by_song_id("t1") == ""
+    client.close()

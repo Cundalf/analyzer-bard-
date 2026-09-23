@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from tests.conftest import seed_library
 
 from app.enrich import lyrics as lyrics_mod
-from tests.conftest import seed_library
+from app.enrich.pipeline import (
+    _detect_track_language,
+    _fetch_lyrics,
+    row_id,
+)
 
 SPANISH_LYRICS = """\
 [Verse 1]
@@ -50,6 +55,7 @@ class FakeClient:
 
 
 # ------------------------------------------------------------ detección
+
 
 def test_available_without_dependency(monkeypatch):
     monkeypatch.setattr(lyrics_mod, "_identifier", None)
@@ -168,6 +174,7 @@ def test_detect_language_log_prob_score(monkeypatch):
 
 # ------------------------------------------------------------ integración pipeline
 
+
 class LyricsLastFm:
     def fetch_for(self, *a, **k):
         return []
@@ -178,9 +185,10 @@ class LyricsLastFm:
 
 @pytest.mark.anyio
 async def test_pipeline_detects_language_from_lyrics(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.artist import Ficha, get_ficha, save_ficha
     from app.enrich.pipeline import enrich_library
-    from tests.conftest import FakeOllama
 
     seed_library(conn)
     save_ficha(conn, Ficha("track", "t1", {"moods": []}, "d", 0.9, "inherited", "h"))
@@ -207,8 +215,9 @@ async def test_pipeline_detects_language_from_lyrics(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_language_disabled(conn, settings):
-    from app.enrich.pipeline import enrich_library
     from tests.conftest import FakeOllama
+
+    from app.enrich.pipeline import enrich_library
 
     seed_library(conn)
     settings.detect_language = False
@@ -230,9 +239,10 @@ async def test_pipeline_language_disabled(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_lyrics_cached_once(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.artist import Ficha, save_ficha
     from app.enrich.pipeline import enrich_library
-    from tests.conftest import FakeOllama
 
     seed_library(conn)
     save_ficha(conn, Ficha("track", "t1", {"moods": []}, "d", 0.9, "inherited", "h"))
@@ -254,23 +264,20 @@ async def test_pipeline_lyrics_cached_once(conn, settings):
     # 4 tracks, una llamada cada uno en la primera corrida; la segunda usa
     # la caché sólo para los que sí tenían letra (t1)
     assert len(id_calls) == 7  # 4 + 3 sin letra que se reintentan
-    cached = conn.execute(
-        "SELECT COUNT(*) AS n FROM lyrics_cache"
-    ).fetchone()["n"]
+    cached = conn.execute("SELECT COUNT(*) AS n FROM lyrics_cache").fetchone()["n"]
     assert cached == 1
 
 
 @pytest.mark.anyio
 async def test_pipeline_falls_back_to_artist_title(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.artist import Ficha, save_ficha
     from app.enrich.pipeline import enrich_library
-    from tests.conftest import FakeOllama
 
     seed_library(conn)
     save_ficha(conn, Ficha("track", "t1", {"moods": []}, "d", 0.9, "inherited", "h"))
-    client = FakeClient(
-        by_id={}, by_name={("Wind Rose", "Drunken Dwarves"): ENGLISH_LYRICS}
-    )
+    client = FakeClient(by_id={}, by_name={("Wind Rose", "Drunken Dwarves"): ENGLISH_LYRICS})
     settings.detect_language = True
     await enrich_library(
         conn,
@@ -289,9 +296,10 @@ async def test_pipeline_falls_back_to_artist_title(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_no_lyrics_no_detection(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.artist import Ficha, save_ficha
     from app.enrich.pipeline import enrich_library
-    from tests.conftest import FakeOllama
 
     seed_library(conn)
     save_ficha(conn, Ficha("track", "t1", {"moods": []}, "d", 0.9, "inherited", "h"))
@@ -313,9 +321,10 @@ async def test_pipeline_no_lyrics_no_detection(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_lyrics_client_error_tolerated(conn, settings):
+    from tests.conftest import FakeOllama
+
     from app.enrich.artist import Ficha, save_ficha
     from app.enrich.pipeline import enrich_library
-    from tests.conftest import FakeOllama
 
     seed_library(conn)
     save_ficha(conn, Ficha("track", "t1", {"moods": []}, "d", 0.9, "inherited", "h"))
@@ -341,8 +350,9 @@ async def test_pipeline_lyrics_client_error_tolerated(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_no_ficha_for_track(conn, settings):
-    from app.enrich.pipeline import enrich_library
     from tests.conftest import FakeOllama
+
+    from app.enrich.pipeline import enrich_library
 
     seed_library(conn)
     client = FakeClient(by_id={"t1": SPANISH_LYRICS})
@@ -363,8 +373,9 @@ async def test_pipeline_no_ficha_for_track(conn, settings):
 
 @pytest.mark.anyio
 async def test_pipeline_detection_without_navidrome_id(conn, settings):
-    from app.enrich.pipeline import enrich_library
     from tests.conftest import FakeOllama
+
+    from app.enrich.pipeline import enrich_library
 
     conn.execute(
         "INSERT INTO tracks(id, navidrome_id, title, artist_id) "
@@ -385,3 +396,127 @@ async def test_pipeline_detection_without_navidrome_id(conn, settings):
         force=True,
     )
     assert result["languages"] == 0
+
+
+def test_row_id_variants():
+    assert row_id({"id": "track:x"}) == "track:x"
+    assert row_id({}) == ""
+    assert row_id({"id": None}) == ""
+
+
+def test_fetch_lyrics_by_id_first(conn):
+    class Client:
+        def get_lyrics_by_song_id(self, track_id):
+            return "letra por id"
+
+        def get_lyrics(self, artist, title):
+            raise AssertionError("no debería llamarse")
+
+    lyrics = _fetch_lyrics(Client(), {"navidrome_id": "t1", "title": "T", "artist_name": "A"})
+    assert lyrics == "letra por id"
+
+
+def test_fetch_lyrics_fallback_by_name(conn):
+    class Client:
+        def get_lyrics_by_song_id(self, track_id):
+            return ""
+
+        def get_lyrics(self, artist, title):
+            return f"{artist}:{title}"
+
+    lyrics = _fetch_lyrics(
+        Client(), {"navidrome_id": "t1", "title": "Cancion", "artist_name": "Artista"}
+    )
+    assert lyrics == "Artista:Cancion"
+
+
+def test_fetch_lyrics_no_title(conn):
+    class Client:
+        def get_lyrics_by_song_id(self, track_id):
+            return ""
+
+        def get_lyrics(self, artist, title):
+            raise AssertionError("no debería llamarse")
+
+    lyrics = _fetch_lyrics(Client(), {"navidrome_id": "t1", "title": ""})
+    assert lyrics == ""
+
+
+def test_fetch_lyrics_client_without_open_subsonic(conn):
+    class OldClient:
+        def get_lyrics(self, artist, title):
+            return "vieja api"
+
+    lyrics = _fetch_lyrics(OldClient(), {"navidrome_id": "t1", "title": "T", "artist_name": "A"})
+    assert lyrics == "vieja api"
+
+
+def test_detect_track_language_without_id(tmp_path):
+    class Client:
+        pass
+
+    assert _detect_track_language(None, Client(), {}, lambda *a: None) is None
+
+
+def test_detect_track_language_no_ficha(conn):
+    class Client:
+        def get_lyrics_by_song_id(self, track_id):
+            return "texto de letra suficientemente largo para detectar idioma"
+
+    result = _detect_track_language(
+        conn,
+        Client(),
+        {"navidrome_id": "t1", "title": "T"},
+        lambda *a: None,
+    )
+    assert result is None
+
+
+def test_detect_track_language_without_lyrics(conn):
+    from app.enrich.artist import Ficha, save_ficha
+
+    seed_library(conn)
+    save_ficha(conn, Ficha("track", "t1", {"moods": []}, "d", 0.9, "inherited", "h"))
+
+    class Client:
+        def get_lyrics_by_song_id(self, track_id):
+            return ""
+
+        def get_lyrics(self, artist, title):
+            return ""
+
+    result = _detect_track_language(
+        conn, Client(), {"navidrome_id": "t1", "title": "T"}, lambda *a: None
+    )
+    assert result is None
+    # las letras vacías no se cachean: el usuario puede agregarlas después
+    cached = conn.execute("SELECT lyrics FROM lyrics_cache WHERE track_id = 't1'").fetchone()
+    assert cached is None
+
+
+def test_lyrics_available_import_error(monkeypatch):
+    import builtins
+
+    from app.enrich import lyrics as lyrics_mod
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "py3langid":
+            raise ImportError("sin py3langid")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr(lyrics_mod, "_identifier", None)
+    monkeypatch.setattr(lyrics_mod, "_load_failed", False)
+    assert lyrics_mod.available() is False
+    # segunda llamada usa el flag de fallo
+    assert lyrics_mod.available() is False
+
+
+def test_detect_language_when_unavailable(monkeypatch):
+    from app.enrich import lyrics as lyrics_mod
+
+    monkeypatch.setattr(lyrics_mod, "_identifier", None)
+    monkeypatch.setattr(lyrics_mod, "_load_failed", True)
+    assert lyrics_mod.detect_language("x" * 100) is None

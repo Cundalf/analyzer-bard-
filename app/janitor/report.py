@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 log = logging.getLogger("bardo.janitor.report")
 
@@ -38,9 +39,7 @@ class TagDiff:
 
     def changed_fields(self) -> list[str]:
         keys = set(self.old_tags) | set(self.new_tags)
-        return sorted(
-            k for k in keys if self.old_tags.get(k) != self.new_tags.get(k)
-        )
+        return sorted(k for k in keys if self.old_tags.get(k) != self.new_tags.get(k))
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -53,7 +52,7 @@ class TagDiff:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TagDiff":
+    def from_dict(cls, data: dict[str, Any]) -> TagDiff:
         return cls(
             file=data.get("file", ""),
             old_tags=data.get("old_tags", {}) or {},
@@ -168,12 +167,10 @@ def library_health(conn: Any) -> dict[str, Any]:
     ).fetchone()["n"]
     tracks = conn.execute("SELECT COUNT(*) AS n FROM tracks").fetchone()["n"]
     needs_janitor = conn.execute(
-        "SELECT COUNT(*) AS n FROM fichas "
-        "WHERE json_extract(facets, '$.needs_janitor') = 1"
+        "SELECT COUNT(*) AS n FROM fichas WHERE json_extract(facets, '$.needs_janitor') = 1"
     ).fetchone()["n"]
     last_run = conn.execute(
-        "SELECT id, status, started_at, finished_at, stats FROM runs "
-        "ORDER BY id DESC LIMIT 1"
+        "SELECT id, status, started_at, finished_at, stats FROM runs ORDER BY id DESC LIMIT 1"
     ).fetchone()
     issues = no_year + unknown_artist + blank_name + generic_name
     score = 100.0 if total == 0 else max(0.0, 100.0 * (1 - issues / total))

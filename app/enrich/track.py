@@ -44,12 +44,9 @@ def inherit_track_ficha(
         return default
 
     moods = pick_list("moods")
-    themes = pick_list("themes") or pick_list("references") or pick_list(
-        "lyrical_themes"
-    )
+    themes = pick_list("themes") or pick_list("references") or pick_list("lyrical_themes")
     description_parts = [
-        f"{track_row.get('title', '')} de "
-        f"{artist_facets.get('name', '') or ''}".strip()
+        f"{track_row.get('title', '')} de {artist_facets.get('name', '') or ''}".strip()
     ]
     if album_ficha and album_ficha.get("description"):
         description_parts.append(album_ficha["description"])
@@ -57,12 +54,9 @@ def inherit_track_ficha(
 
     lowered = title.lower()
     is_instrumental = any(
-        hint in lowered
-        for hint in ("instrumental", "intro", "outro", "interlude", "prelude")
+        hint in lowered for hint in ("instrumental", "intro", "outro", "interlude", "prelude")
     )
-    is_ballad = any(
-        hint in lowered for hint in ("ballad", "balada", "lament", "elegy")
-    )
+    is_ballad = any(hint in lowered for hint in ("ballad", "balada", "lament", "elegy"))
 
     genres = pick_list("genres") or pick_list("subgenres")
     facets: dict[str, Any] = {
@@ -97,9 +91,7 @@ def inherit_track_ficha(
         "artist_ficha": artist_ficha["content_hash"] if artist_ficha else "",
     }
     parent_confidences = [
-        float(ficha.get("confidence") or 0.0)
-        for ficha in (album_ficha, artist_ficha)
-        if ficha
+        float(ficha.get("confidence") or 0.0) for ficha in (album_ficha, artist_ficha) if ficha
     ]
     confidence = min(parent_confidences) if parent_confidences else 0.5
     return Ficha(
@@ -145,8 +137,7 @@ async def enrich_track_llm(
         track_row.get("album_name", "") or "",
         track_row.get("title", "") or "",
         str(album_facets.get("concept", "")),
-        list(album_facets.get("themes", []))
-        + list(album_facets.get("moods", [])),
+        list(album_facets.get("themes", [])) + list(album_facets.get("moods", [])),
         lyrics,
     )
     try:

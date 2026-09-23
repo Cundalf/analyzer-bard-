@@ -6,8 +6,10 @@
 
 [English](README.md) · [Español](README.es.md)
 
+[![CI](https://github.com/Cundalf/analyzer-bard-/actions/workflows/ci.yml/badge.svg)](https://github.com/Cundalf/analyzer-bard-/actions/workflows/ci.yml)
 ![status](https://img.shields.io/badge/estado-alpha-orange)
 ![python](https://img.shields.io/badge/python-3.12%2B-blue)
+![coverage](https://img.shields.io/badge/cobertura-100%25-brightgreen)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 ![local](https://img.shields.io/badge/IA-Ollama-purple)
 
@@ -80,7 +82,7 @@ Requisitos:
 - Una API key gratis de [AcoustID](https://acoustid.org/new-application) (para el Janitor)
 
 ```bash
-git clone https://github.com/cundalf/bardo.git
+git clone https://github.com/Cundalf/analyzer-bard-.git
 cd bardo
 cp .env.example .env
 # editá .env: SUBSONIC_*, OLLAMA_*, ACOUSTID_KEY, MUSIC_PATH...
@@ -211,36 +213,47 @@ También podés pisar settings en runtime desde **Configuración** en la UI
 ## Tests
 
 ```bash
-pip install -e ".[janitor,dev]"
-make test          # 564 tests
-make cover         # exige 100% de líneas y ramas
-make lint          # pyflakes
+make install       # venv + todos los extras + herramientas de dev
+make test          # 937 tests
+make cover         # 100% de líneas y ramas (obligatorio)
+make lint          # ruff check + format check
+make check         # lint + tests, lo que corre el CI
 ```
 
 La suite exige **100% de cobertura de líneas y ramas** (`fail_under = 100` en
-`pyproject.toml`). Cada feature y camino de error tiene tests: cliente Subsonic
-(todos los endpoints, reintentos, payloads malformados), Ollama (recuperación
-de JSON, reintentos, tool calling), retrieval (filtros, fallbacks, validación
-anti-alucinación), enriquecimiento (fallos del LLM, herencia, staleness),
-Janitor (WAV→FLAC, runner de beets, log antes/después), UI web y CLI.
+`pyproject.toml`) y se revisa con [ruff](https://docs.astral.sh/ruff/). Cada
+feature y camino de error tiene tests: cliente Subsonic (todos los endpoints,
+reintentos, payloads malformados, letras), Ollama (recuperación de JSON,
+reintentos, tool calling), retrieval (filtros de facetas, fallbacks,
+validación anti-alucinación), enriquecimiento (fallos del LLM, herencia,
+staleness, filtro de genéricos, merge no destructivo), detección de idioma por
+letra, análisis de audio, Janitor (WAV→FLAC, runner de beets, log
+antes/después), UI web y CLI.
+
+El CI corre lint, la matriz de tests en Python 3.12/3.13 con todos los extras,
+y un build de Docker con smoke test del healthcheck (ver
+`.github/workflows/ci.yml`).
 
 ## Estructura del repo
 
 ```
-bardo/
+analyzer-bard-/
 ├── app/
 │   ├── main.py            # rutas FastAPI + UI
 │   ├── config.py          # env + overrides de DB
-│   ├── db.py              # SQLite + sqlite-vec + FTS5
-│   ├── subsonic.py        # cliente Subsonic (lectura/escritura/scan)
+│   ├── db.py              # SQLite + sqlite-vec + FTS5 + índice de facetas
+│   ├── subsonic.py        # cliente Subsonic (lectura/escritura/scan/letras)
 │   ├── ollama.py          # chat, embeddings, tool calling
 │   ├── cli.py             # comando `bardo`
 │   ├── janitor/           # Módulo A: wav2flac, runner beets, report, plugin
-│   ├── enrich/            # prompts, fichas artista/álbum/canción, Last.fm
+│   ├── enrich/            # prompts, fichas, vocab, genéricos, letras, audio
 │   ├── index/             # embeddings → vec_fichas
-│   ├── agent/             # tools, retrieval, loop ReAct
-│   └── web/               # templates + static
-├── beets-config/          # config de beets (ejemplo; el container la autogenera)
+│   ├── agent/             # tools, retrieval, loop del agente, runner
+│   └── web/               # templates, static, i18n
+├── beets-config/          # ejemplo de config de beets (el container genera el resto)
+├── docs/SPEC.md           # documento fundacional de diseño
+├── tests/                 # 937 tests, 100% de líneas y ramas
+├── .github/workflows/     # CI: lint, tests (3.12/3.13), smoke test de Docker
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -262,6 +275,13 @@ enriquecimiento. También se pueden usar modelos cloud vía Ollama, ej. `gemma4:
 
 **¿Mis datos se envían a algún lado?** Sólo lo que habilites: AcoustID/MusicBrainz
 (fingerprints, gratis), Last.fm (tags opcionales) y tu host de Ollama. Sin telemetría.
+
+## Contribuir
+
+Ver [CONTRIBUTING.md](CONTRIBUTING.md) para el setup, el estándar de calidad
+(100% de cobertura, ruff) y los principios del proyecto. Los cambios notables
+se registran en [CHANGELOG.md](CHANGELOG.md), y el diseño fundacional vive en
+[docs/SPEC.md](docs/SPEC.md).
 
 ## Licencia
 

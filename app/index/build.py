@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.config import Settings, get_settings
 from app.enrich.canonicalize import ficha_text
@@ -34,8 +35,7 @@ async def build_index(
 
     rows = conn.execute(
         "SELECT entity_type, entity_id, facets, description, source "
-        "FROM fichas ORDER BY entity_type, entity_id"
-        + (f" LIMIT {int(limit)}" if limit else "")
+        "FROM fichas ORDER BY entity_type, entity_id" + (f" LIMIT {int(limit)}" if limit else "")
     ).fetchall()
 
     stats = {"total": len(rows), "embedded": 0, "skipped": 0, "errors": 0}
@@ -60,9 +60,7 @@ async def build_index(
                         len(vector),
                         settings.embed_dim,
                     )
-                vec_upsert(
-                    conn, row["entity_type"], row["entity_id"], vector
-                )
+                vec_upsert(conn, row["entity_type"], row["entity_id"], vector)
                 stats["embedded"] += 1
             except Exception as exc:
                 stats["errors"] += 1

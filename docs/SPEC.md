@@ -1,6 +1,10 @@
 # 🎧 Bardo — Spec v0.1
 
-> **Codename tentativo: "Bardo"** (cambiable). Documento maestro para pasar a una IA y arrancar el vibe-coding.
+> **Documento fundacional del proyecto.** Describe el diseño original que se
+> implementó en este repositorio y sirve como referencia de arquitectura.
+> Para el estado actual y lo agregado después del spec, ver
+> [`CHANGELOG.md`](../CHANGELOG.md) y el [README](../README.md).
+>
 > **Leer de arriba a abajo. No inventar features que no estén acá. Respetar la sección 14 (No-alcance).**
 
 ---

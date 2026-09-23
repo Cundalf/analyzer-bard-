@@ -14,9 +14,7 @@ API_ROOT = "https://ws.audioscrobbler.com/2.0/"
 
 
 class LastFmClient:
-    def __init__(
-        self, settings: Settings | None = None, api_key: str | None = None
-    ):
+    def __init__(self, settings: Settings | None = None, api_key: str | None = None):
         self.settings = settings or get_settings()
         self.api_key = api_key or self.settings.lastfm_api_key
         self._client = httpx.Client(timeout=10.0)
@@ -60,12 +58,8 @@ class LastFmClient:
             if t.get("name") and int(t.get("count", 0) or 0) > 0
         ]
 
-    def track_top_tags(
-        self, artist: str, track: str, limit: int = 10
-    ) -> list[str]:
-        data = self._get(
-            "track.getTopTags", artist=artist, track=track
-        )
+    def track_top_tags(self, artist: str, track: str, limit: int = 10) -> list[str]:
+        data = self._get("track.getTopTags", artist=artist, track=track)
         tags = data.get("toptags", {}).get("tag", []) or []
         return [
             t.get("name", "")
@@ -80,8 +74,7 @@ class LastFmClient:
         from datetime import UTC, datetime, timedelta
 
         row = conn.execute(
-            "SELECT payload, fetched_at FROM lastfm_cache "
-            "WHERE entity_type = ? AND entity_key = ?",
+            "SELECT payload, fetched_at FROM lastfm_cache WHERE entity_type = ? AND entity_key = ?",
             (entity_type, key),
         ).fetchone()
         if row:

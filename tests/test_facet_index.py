@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 
+from tests.conftest import seed_library
+
 from app.db import (
     facet_list,
     facet_rebuild_all,
     facet_search,
     facet_upsert,
 )
-from tests.conftest import seed_library
 
 
 def test_facet_upsert_and_list(conn):
@@ -45,9 +46,10 @@ def test_facet_search_single_facet(conn):
     facet_upsert(conn, "album", "al2", {"languages": ["en"]})
     conn.commit()
     assert facet_search(conn, entity_type="album", facets={"languages": ["es"]}) == {"al1"}
-    assert facet_search(
-        conn, entity_type="album", facets={"languages": ["es", "en"]}
-    ) == {"al1", "al2"}
+    assert facet_search(conn, entity_type="album", facets={"languages": ["es", "en"]}) == {
+        "al1",
+        "al2",
+    }
 
 
 def test_facet_search_multi_facet_requires_all(conn):
@@ -148,9 +150,7 @@ def test_init_db_migrates_from_v1(tmp_path, monkeypatch):
     get_settings.cache_clear()
     conn = db_mod.connect(tmp_path / "mig.db")
     conn.executescript(db_mod.SCHEMA)
-    conn.execute(
-        "INSERT INTO meta(key, value) VALUES ('schema_version', '1')"
-    )
+    conn.execute("INSERT INTO meta(key, value) VALUES ('schema_version', '1')")
     conn.execute(
         """
         INSERT INTO fichas(entity_type, entity_id, facets, description, confidence, source, content_hash)

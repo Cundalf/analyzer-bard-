@@ -7,15 +7,15 @@ import pytest
 
 from app.ollama import OllamaClient, OllamaError, embed_many, extract_json
 
-
 # ------------------------------------------------------------ extract_json
+
 
 @pytest.mark.parametrize(
     "text,expected",
     [
         ('{"a": 1}', {"a": 1}),
         ('  {"a": 1}  ', {"a": 1}),
-        ('[1, 2, 3]', [1, 2, 3]),
+        ("[1, 2, 3]", [1, 2, 3]),
         ('"solo un string"', "solo un string"),
         ("123", 123),
         ("null", None),
@@ -74,6 +74,7 @@ def test_extract_json_none_raises():
 
 
 # ------------------------------------------------------------ cliente
+
 
 def embed_transport(vectors=None, fail_times=0, status=200):
     state = {"n": 0}
@@ -183,9 +184,7 @@ async def test_chat_default_model(settings):
 
 @pytest.mark.anyio
 async def test_chat_http_error_raises(settings):
-    client = OllamaClient(
-        settings, transport=httpx.MockTransport(lambda r: httpx.Response(404))
-    )
+    client = OllamaClient(settings, transport=httpx.MockTransport(lambda r: httpx.Response(404)))
     with pytest.raises(OllamaError):
         await client.chat([{"role": "user", "content": "x"}])
     await client.close()
@@ -224,7 +223,10 @@ async def test_chat_json_retries_exhausted_raises(settings):
         calls["n"] += 1
         return httpx.Response(200, json={"message": {"content": "nunca json"}})
 
-    client = OllamaClient(settings, transport=httpx.MockTransport(handler), )
+    client = OllamaClient(
+        settings,
+        transport=httpx.MockTransport(handler),
+    )
     with pytest.raises(OllamaError):
         await client.chat_json([{"role": "user", "content": "x"}], retries=1)
     assert calls["n"] == 2
@@ -276,9 +278,7 @@ async def test_list_models(settings):
 
 @pytest.mark.anyio
 async def test_list_models_error_propagates(settings):
-    client = OllamaClient(
-        settings, transport=httpx.MockTransport(lambda r: httpx.Response(500))
-    )
+    client = OllamaClient(settings, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
     with pytest.raises(httpx.HTTPStatusError):
         await client.list_models()
     await client.close()
@@ -310,9 +310,7 @@ async def test_embed_many_batches(settings):
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
         batches.append(len(payload["input"]))
-        return httpx.Response(
-            200, json={"embeddings": [[0.1] * 4] * len(payload["input"])}
-        )
+        return httpx.Response(200, json={"embeddings": [[0.1] * 4] * len(payload["input"])})
 
     client = OllamaClient(settings, transport=httpx.MockTransport(handler))
     vectors = await embed_many(client, [f"t{i}" for i in range(10)], batch_size=4)
@@ -340,3 +338,89 @@ async def test_context_manager(settings):
     async with OllamaClient(settings, transport=httpx.MockTransport(handler)) as client:
         assert await client.ping() is True
     assert client._client.is_closed
+
+
+def test_extract_json_trailing_comma_fence(settings):
+    from app.ollama import extract_json
+
+    assert extract_json('```json\n{"a": 1,}\n```') == {"a": 1}
+
+
+def test_extract_json_only_whitespace_fence(settings):
+    from app.ollama import extract_json
+
+    with pytest.raises(ValueError):
+        extract_json("```json\n   \n```")
+
+
+def test_extract_json_escaped_quotes(settings):
+    from app.ollama import extract_json
+
+    text = '{"texto": "dice \\"hola\\" y {llaves}"}'
+    assert extract_json(text)["texto"] == 'dice "hola" y {llaves}'
+
+
+def test_extract_json_escapes_and_nested_braces():
+    from app.ollama import extract_json
+
+    text = '{"a": "con \\\\ backslash", "b": {"c": [1, 2]}}'
+    assert extract_json(text)["b"]["c"] == [1, 2]
+
+
+def test_extract_json_string_with_unbalanced_brace():
+    from app.ollama import extract_json
+
+    text = 'pre {"x": "texto con } suelto"} post'
+    assert extract_json(text) == {"x": "texto con } suelto"}
+
+
+def test_extract_json_string_with_open_brace():
+    from app.ollama import extract_json
+
+    assert extract_json('{"x": "a { b"}') == {"x": "a { b"}
+
+
+def test_extract_json_escaped_backslash_before_quote():
+    from app.ollama import extract_json
+
+    # texto previo fuerza el escáner; el string cierra tras un backslash escapado
+    assert extract_json('nota: {"x": "c:\\\\"}') == {"x": "c:\\"}
+
+
+def test_extract_json_string_with_escape_at_end():
+    from app.ollama import extract_json
+
+    text = 'nota {"path": "C:\\\\ruta", "n": 1} fin'
+    assert extract_json(text)["n"] == 1
+
+
+def test_extract_json_escaped_quote_inside_string():
+    from app.ollama import extract_json
+
+    text = 'bla {"x": "dice \\"hola\\"", "y": 2} bla'
+    result = extract_json(text)
+    assert result["y"] == 2
+    assert "hola" in result["x"]
+
+
+def test_extract_json_broken_opener_skips_to_next():
+    from app.ollama import extract_json
+
+    # el primer '{' nunca cierra válido; el segundo es el objeto correcto
+    text = '{roto {"ok": 1}'
+    assert extract_json(text) == {"ok": 1}
+
+
+def test_extract_json_invalid_detail():
+    from app.ollama import extract_json
+
+    with pytest.raises(ValueError) as exc:
+        extract_json('{"a": 1 2 3}')
+    assert "invalid JSON" in str(exc.value)
+
+
+def test_extract_json_mismatched_brackets():
+    from app.ollama import extract_json
+
+    with pytest.raises(ValueError):
+        extract_json('{"a": [1, 2}')

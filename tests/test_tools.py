@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from tests.conftest import FakeOllama, FakeSubsonic, seed_library
 
 from app.agent.tools import (
     ToolContext,
@@ -12,7 +13,6 @@ from app.agent.tools import (
     validate_track_ids,
 )
 from app.enrich.canonicalize import Canonicalizer
-from tests.conftest import FakeOllama, FakeSubsonic, seed_library
 
 
 def make_ctx(settings, conn, **kwargs) -> ToolContext:
@@ -26,6 +26,7 @@ def make_ctx(settings, conn, **kwargs) -> ToolContext:
 
 
 # ------------------------------------------------------------ schemas
+
 
 def test_tool_schemas_without_web_search(settings):
     settings.web_search_enabled = False
@@ -47,6 +48,7 @@ def test_tool_schemas_with_web_search(settings):
 
 
 # ------------------------------------------------------------ validate
+
 
 def test_validate_track_ids_empty(conn):
     assert validate_track_ids(conn, []) == []
@@ -70,13 +72,12 @@ def test_validate_track_ids_chunking(conn):
 
 # ------------------------------------------------------------ search_candidates
 
+
 @pytest.mark.anyio
 async def test_search_candidates_returns_payload(settings, conn):
     seed_library(conn)
     ctx = make_ctx(settings, conn)
-    result = await execute_tool(
-        "search_candidates", {"query": "dwarves cerveza", "limit": 10}, ctx
-    )
+    result = await execute_tool("search_candidates", {"query": "dwarves cerveza", "limit": 10}, ctx)
     assert result["count"] >= 1
     candidate = result["candidates"][0]
     assert set(candidate) == {"track_id", "title", "artist", "album", "moods", "themes"}
@@ -148,6 +149,7 @@ async def test_search_candidates_exclude_genres(settings, conn):
 
 # ------------------------------------------------------------ list tools
 
+
 @pytest.mark.anyio
 async def test_list_artists(settings, conn):
     seed_library(conn)
@@ -187,9 +189,7 @@ async def test_list_tracks_all_and_filtered(settings, conn):
     ctx = make_ctx(settings, conn)
     all_tracks = await execute_tool("list_tracks", {"album": "Wintersaga"}, ctx)
     assert {t["track_id"] for t in all_tracks["tracks"]} == {"t1", "t2"}
-    filtered = await execute_tool(
-        "list_tracks", {"album": "Wintersaga", "artist": "Blind"}, ctx
-    )
+    filtered = await execute_tool("list_tracks", {"album": "Wintersaga", "artist": "Blind"}, ctx)
     assert filtered["tracks"] == []
 
 
@@ -201,6 +201,7 @@ async def test_unknown_tool(settings, conn):
 
 
 # ------------------------------------------------------------ web_search
+
 
 @pytest.mark.anyio
 async def test_web_search_disabled(settings, conn):
@@ -219,6 +220,7 @@ async def test_web_search_enabled(settings, conn):
 
 
 # ------------------------------------------------------------ create_playlist
+
 
 @pytest.mark.anyio
 async def test_create_playlist_preview(settings, conn):
@@ -245,9 +247,7 @@ async def test_create_playlist_no_name_uses_default(settings, conn):
 async def test_create_playlist_whitespace_name(settings, conn):
     seed_library(conn)
     ctx = make_ctx(settings, conn)
-    result = await execute_tool(
-        "create_playlist", {"name": "   ", "track_ids": ["t1"]}, ctx
-    )
+    result = await execute_tool("create_playlist", {"name": "   ", "track_ids": ["t1"]}, ctx)
     assert result["name"] == "Bardo"
 
 
@@ -269,9 +269,7 @@ async def test_create_playlist_created(settings, conn):
 async def test_create_playlist_all_invalid(settings, conn):
     seed_library(conn)
     ctx = make_ctx(settings, conn, allow_create=True, subsonic=FakeSubsonic())
-    result = await execute_tool(
-        "create_playlist", {"name": "P", "track_ids": ["fake"]}, ctx
-    )
+    result = await execute_tool("create_playlist", {"name": "P", "track_ids": ["fake"]}, ctx)
     assert "error" in result
     assert ctx.created_playlists == []
 
@@ -280,9 +278,7 @@ async def test_create_playlist_all_invalid(settings, conn):
 async def test_create_playlist_no_subsonic_client(settings, conn):
     seed_library(conn)
     ctx = make_ctx(settings, conn, allow_create=True, subsonic=None)
-    result = await execute_tool(
-        "create_playlist", {"name": "P", "track_ids": ["t1"]}, ctx
-    )
+    result = await execute_tool("create_playlist", {"name": "P", "track_ids": ["t1"]}, ctx)
     assert "error" in result
 
 
@@ -312,9 +308,7 @@ async def test_create_playlist_song_count_fallback(settings, conn):
             return playlist
 
     ctx = make_ctx(settings, conn, allow_create=True, subsonic=NoCount())
-    result = await execute_tool(
-        "create_playlist", {"name": "P", "track_ids": ["t1", "t2"]}, ctx
-    )
+    result = await execute_tool("create_playlist", {"name": "P", "track_ids": ["t1", "t2"]}, ctx)
     assert result["song_count"] == 2
 
 
@@ -322,13 +316,12 @@ async def test_create_playlist_song_count_fallback(settings, conn):
 async def test_create_playlist_numeric_ids_coerced(settings, conn):
     seed_library(conn)
     ctx = make_ctx(settings, conn)
-    result = await execute_tool(
-        "create_playlist", {"name": "P", "track_ids": [1, None]}, ctx
-    )
+    result = await execute_tool("create_playlist", {"name": "P", "track_ids": [1, None]}, ctx)
     assert result["valid_track_ids"] == []
 
 
 # ------------------------------------------------------------ result message
+
 
 def test_tool_result_message_short():
     text = tool_result_message("t", {"a": 1})

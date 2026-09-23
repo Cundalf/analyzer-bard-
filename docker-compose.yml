@@ -24,7 +24,6 @@ services:
       - ANALYZE_AUDIO=${ANALYZE_AUDIO:-false}
       - AUDIO_ANALYSIS_SECONDS=${AUDIO_ANALYSIS_SECONDS:-30}
       - BEETSDIR=/config
-      - SUBSONIC_TRUSTED=
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

@@ -4,7 +4,8 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import httpx
 
@@ -101,7 +102,7 @@ class OllamaClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def __aenter__(self) -> "OllamaClient":
+    async def __aenter__(self) -> OllamaClient:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -133,9 +134,7 @@ class OllamaClient:
         if options:
             payload["options"] = options
         try:
-            response = await self._client.post(
-                f"{self.base_url}/api/chat", json=payload
-            )
+            response = await self._client.post(f"{self.base_url}/api/chat", json=payload)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise OllamaError(f"ollama chat failed: {exc}") from exc
@@ -154,16 +153,15 @@ class OllamaClient:
         working = list(messages)
         attempt = 0
         while attempt <= retries:
-            response = await self.chat(
-                working, model=model, fmt=schema or "json", options=options
-            )
+            response = await self.chat(working, model=model, fmt=schema or "json", options=options)
             content = response.get("message", {}).get("content", "")
             try:
                 return extract_json(content)
             except ValueError as exc:
                 last_error = exc
                 attempt += 1
-                working = list(messages) + [
+                working = [
+                    *messages,
                     {
                         "role": "user",
                         "content": (
@@ -171,13 +169,11 @@ class OllamaClient:
                             "Respondé SOLAMENTE con JSON, "
                             "sin markdown ni texto extra."
                         ),
-                    }
+                    },
                 ]
         raise OllamaError(f"could not parse JSON: {last_error}")
 
-    async def embed(
-        self, texts: Sequence[str], *, model: str | None = None
-    ) -> list[list[float]]:
+    async def embed(self, texts: Sequence[str], *, model: str | None = None) -> list[list[float]]:
         if not texts:
             return []
         payload = {
@@ -185,9 +181,7 @@ class OllamaClient:
             "input": list(texts),
         }
         try:
-            response = await self._client.post(
-                f"{self.base_url}/api/embed", json=payload
-            )
+            response = await self._client.post(f"{self.base_url}/api/embed", json=payload)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise OllamaError(f"ollama embed failed: {exc}") from exc

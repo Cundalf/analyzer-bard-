@@ -52,7 +52,8 @@ def artist_messages(
             "content": (
                 "INPUT:\n"
                 f"Artista: {artist_name}\n"
-                f"Géneros que ya figuran en la biblioteca: {', '.join(genres_from_library) or '(ninguno)'}\n"
+                "Géneros que ya figuran en la biblioteca: "
+                f"{', '.join(genres_from_library) or '(ninguno)'}\n"
                 f"Álbumes en la biblioteca: {', '.join(albums_list) or '(ninguno)'}\n\n"
                 "OUTPUT (JSON):\n"
                 '{ "name": "", "genres": [], "subgenres": [], "country": "",'
@@ -176,7 +177,8 @@ def track_messages(
 
 EXPANSION_SYSTEM = """\
 Convertís un pedido en lenguaje natural a un objeto de búsqueda. Devolvés JSON, sin markdown.
-Asociá términos difusos a un campo semántico ("taberna" → ["folk metal","celta","fiesta","drinking song"]).
+Asociá términos difusos a un campo semántico
+("taberna" → ["folk metal","celta","fiesta","drinking song"]).
 
 Reglas de filtros (IMPORTANTE, usalos para acotar el universo):
 - "música en español" → filters.languages: ["es"]. "en inglés" → ["en"]. "en portugués" → ["pt"].

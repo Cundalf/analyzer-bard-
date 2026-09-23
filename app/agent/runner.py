@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.agent import retrieval
 from app.agent.loop import run_agent
@@ -29,9 +30,7 @@ async def expand_prompt(
 ) -> dict[str, Any]:
     settings = settings or get_settings()
     try:
-        data = await ollama.chat_json(
-            expansion_messages(prompt), schema=EXPANSION_SCHEMA
-        )
+        data = await ollama.chat_json(expansion_messages(prompt), schema=EXPANSION_SCHEMA)
         if not isinstance(data, dict):
             data = {}
     except Exception as exc:
@@ -39,9 +38,7 @@ async def expand_prompt(
         data = {}
 
     canonical_terms = canon.canonical_list(data.get("canonical_terms") or [])
-    expanded = canon.expand(
-        list(data.get("expanded_terms") or []) + canonical_terms
-    )
+    expanded = canon.expand(list(data.get("expanded_terms") or []) + canonical_terms)
     moods = canon.canonical_list(data.get("moods") or [])
     filters_raw = data.get("filters")
     if not isinstance(filters_raw, dict):
@@ -102,9 +99,7 @@ def recall_candidates(
         ),
     ]
     if embedding:
-        results.append(
-            retrieval.search_vectors(conn, embedding, limit=limit, filters=filters)
-        )
+        results.append(retrieval.search_vectors(conn, embedding, limit=limit, filters=filters))
     merged = retrieval.rrf_merge(results)
     if not merged:
         merged = retrieval.search_by_terms(conn, terms, limit=limit, filters=filters)
@@ -140,9 +135,7 @@ async def rerank_candidates(
         return {"playlist_name": "", "track_ids": [], "reasoning": "sin candidatos"}
     payload = _candidate_payload(candidates)
     try:
-        raw = await ollama.chat_json(
-            rerank_messages(prompt, payload, size, moods, reference)
-        )
+        raw = await ollama.chat_json(rerank_messages(prompt, payload, size, moods, reference))
     except Exception as exc:
         log.warning("rerank failed: %s", exc)
         raw = {}
@@ -151,8 +144,7 @@ async def rerank_candidates(
     if not valid:
         valid = [c["track_id"] for c in candidates[:size]]
         raw["reasoning"] = (
-            str(raw.get("reasoning", ""))
-            + " [fallback: rerank no devolvió IDs válidos]"
+            str(raw.get("reasoning", "")) + " [fallback: rerank no devolvió IDs válidos]"
         ).strip()
     return {
         "playlist_name": raw.get("playlist_name") or f"Bardo: {prompt[:40]}",
@@ -229,9 +221,7 @@ async def generate_playlist(
                     else _name_from_trace(agent_result) or f"Bardo: {prompt[:40]}"
                 ),
                 "track_ids": (
-                    created[0]["track_ids"]
-                    if created
-                    else _ids_from_trace(agent_result, conn)
+                    created[0]["track_ids"] if created else _ids_from_trace(agent_result, conn)
                 ),
                 "reasoning": agent_result.get("text", ""),
                 "tool_calls": agent_result["tool_calls"],
@@ -242,15 +232,18 @@ async def generate_playlist(
                 "mode": "agent",
             }
             if save and not created and result["track_ids"]:
-                result.update(
-                    _save_direct(client, result["playlist_name"], result["track_ids"])
-                )
+                result.update(_save_direct(client, result["playlist_name"], result["track_ids"]))
             _attach_track_details(conn, result, candidates)
             return result
 
         reranked = await rerank_candidates(
-            conn, ollama, prompt, candidates, size,
-            moods=plan.get("moods"), reference=plan.get("reference", ""),
+            conn,
+            ollama,
+            prompt,
+            candidates,
+            size,
+            moods=plan.get("moods"),
+            reference=plan.get("reference", ""),
         )
         progress("rerank", reranked)
         result = {
@@ -265,9 +258,7 @@ async def generate_playlist(
             "mode": "rerank",
         }
         if save and result["track_ids"]:
-            result.update(
-                _save_direct(client, result["playlist_name"], result["track_ids"])
-            )
+            result.update(_save_direct(client, result["playlist_name"], result["track_ids"]))
         _attach_track_details(conn, result, candidates)
         return result
     finally:
@@ -275,7 +266,6 @@ async def generate_playlist(
             await ollama.close()
         if close_client and client is not None:
             client.close()
-
 
 
 def _attach_track_details(

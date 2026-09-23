@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from tests.conftest import FakeOllama, FakeSubsonic, seed_library
 
 from app.agent.loop import run_agent
 from app.agent.retrieval import FacetFilters
 from app.agent.runner import (
+    _attach_track_details,
     _candidate_payload,
+    _fetch_candidates,
     _ids_from_trace,
     _name_from_trace,
     _save_direct,
@@ -16,7 +19,6 @@ from app.agent.runner import (
 )
 from app.agent.tools import ToolContext
 from app.enrich.canonicalize import Canonicalizer
-from tests.conftest import FakeOllama, FakeSubsonic, seed_library
 
 
 def ctx_for(conn, settings, ollama, **kwargs) -> ToolContext:
@@ -40,6 +42,7 @@ def tool_call(name, arguments):
 
 
 # ------------------------------------------------------------ expand_prompt
+
 
 @pytest.mark.anyio
 async def test_expand_prompt_full(settings):
@@ -95,9 +98,7 @@ async def test_expand_prompt_clamps_size(settings):
 @pytest.mark.anyio
 async def test_expand_prompt_garbage_filters(settings):
     payload = {"filters": "no-dict", "size": "abc"}
-    plan = await expand_prompt(
-        FakeOllama(chat_responses=[payload]), Canonicalizer(), "x"
-    )
+    plan = await expand_prompt(FakeOllama(chat_responses=[payload]), Canonicalizer(), "x")
     assert plan["filters"].year_min is None
     assert plan["size"] == settings.playlist_default_size
 
@@ -105,14 +106,13 @@ async def test_expand_prompt_garbage_filters(settings):
 @pytest.mark.anyio
 async def test_expand_prompt_none_terms(settings):
     payload = {"canonical_terms": None, "expanded_terms": None, "moods": None}
-    plan = await expand_prompt(
-        FakeOllama(chat_responses=[payload]), Canonicalizer(), "x"
-    )
+    plan = await expand_prompt(FakeOllama(chat_responses=[payload]), Canonicalizer(), "x")
     assert plan["canonical_terms"] == []
     assert plan["expanded_terms"] == []
 
 
 # ------------------------------------------------------------ recall
+
 
 def test_recall_candidates_uses_prompt_and_terms(conn):
     seed_library(conn)
@@ -172,6 +172,7 @@ def test_candidate_payload_truncates_lists():
 
 # ------------------------------------------------------------ rerank
 
+
 @pytest.mark.anyio
 async def test_rerank_no_candidates(conn, settings):
     result = await rerank_candidates(conn, FakeOllama(), "x", [], 10)
@@ -182,9 +183,7 @@ async def test_rerank_no_candidates(conn, settings):
 async def test_rerank_validates_and_limits(conn, settings):
     seed_library(conn)
     raw = {"playlist_name": "N", "track_ids": ["t1", "fake", "t2"], "reasoning": "r"}
-    result = await rerank_candidates(
-        conn, FakeOllama(chat_responses=[raw]), "x", _cands(), 1
-    )
+    result = await rerank_candidates(conn, FakeOllama(chat_responses=[raw]), "x", _cands(), 1)
     assert result["track_ids"] == ["t1"]
     assert result["playlist_name"] == "N"
 
@@ -193,9 +192,7 @@ async def test_rerank_validates_and_limits(conn, settings):
 async def test_rerank_fallback_all_invalid(conn, settings):
     seed_library(conn)
     raw = {"playlist_name": "N", "track_ids": ["fake1", "fake2"], "reasoning": "r"}
-    result = await rerank_candidates(
-        conn, FakeOllama(chat_responses=[raw]), "prompt", _cands(), 2
-    )
+    result = await rerank_candidates(conn, FakeOllama(chat_responses=[raw]), "prompt", _cands(), 2)
     assert result["track_ids"] == ["t1", "t2"]
     assert "fallback" in result["reasoning"]
 
@@ -246,6 +243,7 @@ def _cands():
 
 
 # ------------------------------------------------------------ generate_playlist
+
 
 @pytest.mark.anyio
 async def test_generate_playlist_agent_path(conn, settings):
@@ -470,6 +468,7 @@ async def test_generate_playlist_size_override(conn, settings):
 
 # ------------------------------------------------------------ helpers
 
+
 def test_name_from_trace():
     result = {
         "trace": [
@@ -484,11 +483,7 @@ def test_name_from_trace():
 
 def test_ids_from_trace_validates(conn):
     seed_library(conn)
-    result = {
-        "trace": [
-            {"tool": "create_playlist", "arguments": {"track_ids": ["t1", "fake"]}}
-        ]
-    }
+    result = {"trace": [{"tool": "create_playlist", "arguments": {"track_ids": ["t1", "fake"]}}]}
     assert _ids_from_trace(result, conn) == ["t1"]
     assert _ids_from_trace({"trace": []}, conn) == []
 
@@ -501,6 +496,7 @@ def test_save_direct():
 
 
 # ------------------------------------------------------------ loop
+
 
 @pytest.mark.anyio
 async def test_run_agent_string_arguments(conn, settings):
@@ -523,7 +519,10 @@ async def test_run_agent_string_arguments(conn, settings):
         {"message": {"role": "assistant", "content": "ok"}},
     ]
     result = await run_agent(
-        conn, "x", ctx=ctx_for(conn, settings, FakeOllama()), settings=settings,
+        conn,
+        "x",
+        ctx=ctx_for(conn, settings, FakeOllama()),
+        settings=settings,
         ollama=FakeOllama(chat_responses=responses),
     )
     assert result["tool_calls"] == 1
@@ -537,15 +536,16 @@ async def test_run_agent_invalid_string_arguments(conn, settings):
             "message": {
                 "role": "assistant",
                 "content": "",
-                "tool_calls": [
-                    {"function": {"name": "list_artists", "arguments": "no-json"}}
-                ],
+                "tool_calls": [{"function": {"name": "list_artists", "arguments": "no-json"}}],
             }
         },
         {"message": {"role": "assistant", "content": "ok"}},
     ]
     result = await run_agent(
-        conn, "x", ctx=ctx_for(conn, settings, FakeOllama()), settings=settings,
+        conn,
+        "x",
+        ctx=ctx_for(conn, settings, FakeOllama()),
+        settings=settings,
         ollama=FakeOllama(chat_responses=responses),
     )
     assert result["tool_calls"] == 1
@@ -556,7 +556,10 @@ async def test_run_agent_invalid_string_arguments(conn, settings):
 async def test_run_agent_missing_message_key(conn, settings):
     seed_library(conn)
     result = await run_agent(
-        conn, "x", ctx=ctx_for(conn, settings, FakeOllama()), settings=settings,
+        conn,
+        "x",
+        ctx=ctx_for(conn, settings, FakeOllama()),
+        settings=settings,
         ollama=FakeOllama(chat_responses=[{}]),
     )
     assert result["text"] == ""
@@ -580,7 +583,10 @@ async def test_run_agent_multiple_calls_in_one_response(conn, settings):
         {"message": {"role": "assistant", "content": "listo"}},
     ]
     result = await run_agent(
-        conn, "x", ctx=ctx_for(conn, settings, FakeOllama()), settings=settings,
+        conn,
+        "x",
+        ctx=ctx_for(conn, settings, FakeOllama()),
+        settings=settings,
         ollama=FakeOllama(chat_responses=responses),
     )
     assert result["tool_calls"] == 2
@@ -604,8 +610,12 @@ async def test_run_agent_max_calls_cut_mid_response(conn, settings):
         }
     ]
     result = await run_agent(
-        conn, "x", ctx=ctx_for(conn, settings, FakeOllama()), settings=settings,
-        ollama=FakeOllama(chat_responses=responses), max_tool_calls=2,
+        conn,
+        "x",
+        ctx=ctx_for(conn, settings, FakeOllama()),
+        settings=settings,
+        ollama=FakeOllama(chat_responses=responses),
+        max_tool_calls=2,
     )
     assert result["tool_calls"] == 2
 
@@ -614,7 +624,9 @@ async def test_run_agent_max_calls_cut_mid_response(conn, settings):
 async def test_run_agent_creates_ctx_when_none(conn, settings):
     seed_library(conn)
     result = await run_agent(
-        conn, "x", settings=settings,
+        conn,
+        "x",
+        settings=settings,
         ollama=FakeOllama(chat_responses=[{"message": {"content": "sin tools"}}]),
     )
     assert result["tool_calls"] == 0
@@ -638,16 +650,246 @@ async def test_run_agent_progress_events(conn, settings):
     seed_library(conn)
     events = []
     responses = [
-        {
-            "message": {
-                "tool_calls": [{"function": {"name": "list_artists", "arguments": {}}}]
-            }
-        },
+        {"message": {"tool_calls": [{"function": {"name": "list_artists", "arguments": {}}}]}},
         {"message": {"content": "ok"}},
     ]
     await run_agent(
-        conn, "x", ctx=ctx_for(conn, settings, FakeOllama()), settings=settings,
+        conn,
+        "x",
+        ctx=ctx_for(conn, settings, FakeOllama()),
+        settings=settings,
         ollama=FakeOllama(chat_responses=responses),
         progress=lambda s, p: events.append((s, p.get("name"))),
     )
     assert events == [("tool_call", "list_artists")]
+
+
+@pytest.mark.anyio
+async def test_expand_prompt_non_dict_response(settings):
+    from app.agent.runner import expand_prompt
+    from app.enrich.canonicalize import Canonicalizer
+
+    plan = await expand_prompt(
+        FakeOllama(chat_responses=[["lista", "inesperada"]]),
+        Canonicalizer(),
+        "x",
+        settings,
+    )
+    assert plan["intent"] == "playlist"
+    assert plan["expanded_terms"] == []
+
+
+@pytest.mark.anyio
+async def test_generate_playlist_save_direct_after_agent_failure(conn, settings):
+    seed_library(conn)
+    responses = [
+        {"canonical_terms": [], "expanded_terms": ["dwarves"], "moods": []},
+        {
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "create_playlist",
+                            "arguments": {"name": "P", "track_ids": ["t1", "t2"]},
+                        }
+                    }
+                ],
+            }
+        },
+    ]
+    subsonic = FakeSubsonic()
+
+    class NoCreateTool(FakeOllama):
+        pass
+
+    result = await generate_playlist(
+        conn,
+        "dwarves",
+        settings=settings,
+        ollama=NoCreateTool(chat_responses=responses),
+        client=subsonic,
+        save=True,
+        use_agent=True,
+    )
+    assert result["saved"] is True
+    assert subsonic.created
+
+
+@pytest.mark.anyio
+async def test_generate_playlist_owned_client_and_ollama_closed(conn, settings, monkeypatch):
+    closed = {"client": False, "ollama": False}
+
+    class OwnedSubsonic(FakeSubsonic):
+        def close(self):
+            closed["client"] = True
+
+    class OwnedOllama(FakeOllama):
+        async def close(self):
+            closed["ollama"] = True
+
+    monkeypatch.setattr("app.subsonic.SubsonicClient", lambda s: OwnedSubsonic())
+    monkeypatch.setattr(
+        "app.agent.runner.OllamaClient",
+        lambda s: OwnedOllama(
+            chat_responses=[
+                {"canonical_terms": [], "expanded_terms": [], "moods": []},
+                {"playlist_name": "P", "track_ids": [], "reasoning": ""},
+            ]
+        ),
+    )
+    seed_library(conn)
+    await generate_playlist(conn, "x", settings=settings, client=None, use_agent=False)
+    assert closed == {"client": True, "ollama": True}
+
+
+@pytest.mark.anyio
+async def test_generate_playlist_save_without_created(conn, settings, monkeypatch):
+    from app.agent.runner import generate_playlist
+
+    seed_library(conn)
+    fake_agent_result = {
+        "text": "ok",
+        "tool_calls": 1,
+        "trace": [
+            {
+                "tool": "create_playlist",
+                "arguments": {"name": "P", "track_ids": ["t1"]},
+            }
+        ],
+        "created_playlists": [],
+        "validation": [],
+    }
+
+    async def fake_agent(*args, **kwargs):
+        return fake_agent_result
+
+    monkeypatch.setattr("app.agent.runner.run_agent", fake_agent)
+    subsonic = FakeSubsonic()
+    result = await generate_playlist(
+        conn,
+        "dwarves",
+        settings=settings,
+        ollama=FakeOllama(
+            chat_responses=[{"canonical_terms": [], "expanded_terms": ["dwarves"], "moods": []}, {}]
+        ),
+        client=subsonic,
+        save=True,
+        use_agent=True,
+    )
+    assert result["saved"] is True
+    assert subsonic.created == [("P", ["t1"])]
+
+
+def test_name_from_trace_skips_empty_name():
+    from app.agent.runner import _name_from_trace
+
+    result = {
+        "trace": [
+            {"tool": "create_playlist", "arguments": {"name": ""}},
+            {"tool": "create_playlist", "arguments": {"name": "Segunda"}},
+        ]
+    }
+    assert _name_from_trace(result) == "Segunda"
+
+
+def test_ids_from_trace_ignores_non_create_tools_and_empty(conn):
+    from app.agent.runner import _ids_from_trace
+
+    assert _ids_from_trace({"trace": [{"tool": "otra", "arguments": {}}]}, conn) == []
+    assert (
+        _ids_from_trace(
+            {"trace": [{"tool": "create_playlist", "arguments": {"track_ids": []}}]},
+            conn,
+        )
+        == []
+    )
+
+
+def test_name_from_trace_iterates_after_empty_name():
+    from app.agent.runner import _name_from_trace
+
+    result = {
+        "trace": [
+            {"tool": "otra", "arguments": {"name": "ignorada"}},
+            {"tool": "create_playlist", "arguments": {"name": ""}},
+        ]
+    }
+    assert _name_from_trace(result) == ""
+
+
+def test_ids_from_trace_iterates_after_non_match(conn):
+    from app.agent.runner import _ids_from_trace
+
+    seed_library(conn)
+    result = {
+        "trace": [
+            {"tool": "create_playlist", "arguments": {"track_ids": ["t1"]}},
+            {"tool": "list_artists", "arguments": {}},
+        ]
+    }
+    assert _ids_from_trace(result, conn) == ["t1"]
+
+
+def test_attach_track_details_from_candidates(conn):
+    seed_library(conn)
+    candidates = [
+        {
+            "track_id": "t1",
+            "title": "Drunken Dwarves",
+            "artist": "Wind Rose",
+            "album": "Wintersaga",
+            "year": 2019,
+            "genre": "folk metal",
+            "moods": ["fiesta", "a", "b", "c", "d"],
+            "themes": ["cerveza"],
+        }
+    ]
+    result = {"track_ids": ["t1"]}
+    _attach_track_details(conn, result, candidates)
+    assert result["tracks"][0]["title"] == "Drunken Dwarves"
+    assert len(result["tracks"][0]["moods"]) == 4
+
+
+def test_attach_track_details_empty(conn):
+    seed_library(conn)
+    result = {"track_ids": []}
+    _attach_track_details(conn, result, [])
+    assert result["tracks"] == []
+
+
+def test_attach_track_details_fetches_missing(conn):
+    seed_library(conn)
+    result = {"track_ids": ["t3"]}
+    _attach_track_details(conn, result, [])
+    assert result["tracks"][0]["title"] == "Nightfall"
+    assert result["tracks"][0]["artist"] == "Blind Guardian"
+
+
+def test_attach_track_details_unknown_id(conn):
+    seed_library(conn)
+    result = {"track_ids": ["desconocido"]}
+    _attach_track_details(conn, result, [])
+    assert result["tracks"][0]["track_id"] == "desconocido"
+    assert result["tracks"][0]["title"] == ""
+
+
+def test_fetch_candidates_multiple_chunks(conn):
+    seed_library(conn)
+    ids = [f"fake{i}" for i in range(301)] + ["t1"]
+    found = _fetch_candidates(conn, ids)
+    assert "t1" in found
+    assert len(found) == 1
+
+
+def test_recall_candidates_moods_added_to_terms(conn):
+    seed_library(conn)
+    plan = {
+        "raw_prompt": "sin match en texto",
+        "expanded_terms": [],
+        "moods": ["fiesta"],
+        "filters": FacetFilters(),
+    }
+    results = recall_candidates(conn, plan, limit=10)
+    assert results

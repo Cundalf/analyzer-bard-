@@ -9,6 +9,7 @@ Datos objetivos por canción:
 Es un dato duro: la energía medida pisa la estimación del LLM.
 Todo degrada a no-op si falta ffmpeg, el archivo o MUSIC_DIR.
 """
+
 from __future__ import annotations
 
 import array
@@ -62,9 +63,7 @@ def librosa_available() -> bool:
         return False
 
 
-def resolve_track_path(
-    track_path: str | None, music_dir: str | None
-) -> Path | None:
+def resolve_track_path(track_path: str | None, music_dir: str | None) -> Path | None:
     """Resuelve la ruta local de un track contra MUSIC_DIR, sin escaparla.
 
     Navidrome guarda rutas absolutas vistas *dentro* de su contenedor
@@ -135,9 +134,7 @@ def analyze_file(
     )
 
 
-def apply_audio_features(
-    facets: dict[str, Any], features: AudioFeatures
-) -> dict[str, Any]:
+def apply_audio_features(facets: dict[str, Any], features: AudioFeatures) -> dict[str, Any]:
     """Pisa energía/moods objetivos sobre una ficha (dato duro)."""
     from app.enrich.merge import merge_hard_facets
 
@@ -148,15 +145,14 @@ def apply_audio_features(
 
 # ---------------------------------------------------------------- decode
 
+
 def _find_ffmpeg(binary: str | None) -> str | None:
     from app.janitor.wav2flac import find_ffmpeg
 
     return find_ffmpeg(binary)
 
 
-def _decode_pcm(
-    path: Path, *, ffmpeg_bin: str | None, seconds: int
-) -> bytes | None:
+def _decode_pcm(path: Path, *, ffmpeg_bin: str | None, seconds: int) -> bytes | None:
     import subprocess
 
     binary = _find_ffmpeg(ffmpeg_bin)

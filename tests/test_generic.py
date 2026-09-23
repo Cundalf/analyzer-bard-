@@ -4,8 +4,8 @@ import pytest
 
 from app.enrich.generic import filter_valid, is_generic, is_valid
 
-
 # ------------------------------------------------------------ genéricos
+
 
 @pytest.mark.parametrize(
     "value",
@@ -106,6 +106,7 @@ def test_is_valid_inverse():
 
 
 # ------------------------------------------------------------ filter_valid
+
 
 def test_filter_valid_removes_generics_and_dedupes():
     assert filter_valid(["Rock", "unknown", "rock", "N/A", "Pop"]) == ["Rock", "Pop"]

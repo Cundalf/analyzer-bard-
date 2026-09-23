@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import sqlite3
 
+from tests.conftest import seed_library
+
 from app.agent.retrieval import FacetFilters, search_by_terms, search_fts, search_vectors
 from app.db import facet_upsert, fts_upsert, vec_upsert
-from tests.conftest import seed_library
 
 
 def seed_facet_library(conn: sqlite3.Connection) -> None:
@@ -60,6 +61,7 @@ def seed_facet_library(conn: sqlite3.Connection) -> None:
 
 # ------------------------------------------------------------ languages
 
+
 def test_filter_languages_tracks_via_artist(conn):
     seed_facet_library(conn)
     filters = FacetFilters(languages=["es"])
@@ -90,6 +92,7 @@ def test_filter_language_no_match(conn):
 
 # ------------------------------------------------------------ countries
 
+
 def test_filter_countries(conn):
     seed_facet_library(conn)
     filters = FacetFilters(countries=["AR"])
@@ -106,6 +109,7 @@ def test_filter_countries_multiple(conn):
 
 # ------------------------------------------------------------ decades
 
+
 def test_filter_decades_album(conn):
     seed_facet_library(conn)
     filters = FacetFilters(decades=[1980])
@@ -120,6 +124,7 @@ def test_filter_decades_no_match(conn):
 
 
 # ------------------------------------------------------------ energy
+
 
 def test_filter_energy_min(conn):
     seed_facet_library(conn)
@@ -144,6 +149,7 @@ def test_filter_energy_range(conn):
 
 # ------------------------------------------------------------ genres
 
+
 def test_filter_include_genres(conn):
     seed_facet_library(conn)
     filters = FacetFilters(include_genres=["power metal"])
@@ -167,6 +173,7 @@ def test_filter_exclude_genres_via_facet(conn):
 
 
 # ------------------------------------------------------------ flags
+
 
 def test_filter_instrumental_true(conn):
     seed_facet_library(conn)
@@ -202,6 +209,7 @@ def test_filter_concept_album(conn):
 
 # ------------------------------------------------------------ combinaciones
 
+
 def test_filters_combined(conn):
     seed_facet_library(conn)
     filters = FacetFilters(languages=["es"], countries=["AR"], decades=[1980])
@@ -223,6 +231,7 @@ def test_year_and_facet_filters_together(conn):
 
 # ------------------------------------------------------------ fts y vectores
 
+
 def test_search_fts_applies_facet_filters(conn):
     seed_facet_library(conn)
     fts_upsert(conn, "track", "t5", "persiana americana rock latino")
@@ -238,13 +247,12 @@ def test_search_vectors_applies_facet_filters(conn):
     seed_facet_library(conn)
     vec_upsert(conn, "track", "t5", [1.0] * 768)
     vec_upsert(conn, "track", "t3", [1.0] * 768)
-    results = search_vectors(
-        conn, [1.0] * 768, filters=FacetFilters(languages=["es"])
-    )
+    results = search_vectors(conn, [1.0] * 768, filters=FacetFilters(languages=["es"]))
     assert {r["track_id"] for r in results} == {"t5"}
 
 
 # ------------------------------------------------------------ from_dict
+
 
 def test_facet_filters_from_dict_full():
     filters = FacetFilters.from_dict(
@@ -342,9 +350,10 @@ def test_facet_filters_sql_all():
 def test_search_candidates_note_when_filters_too_strict(settings, conn):
     import asyncio
 
+    from tests.conftest import FakeOllama
+
     from app.agent.tools import ToolContext, execute_tool
     from app.enrich.canonicalize import Canonicalizer
-    from tests.conftest import FakeOllama
 
     seed_facet_library(conn)
     ctx = ToolContext(
@@ -368,9 +377,10 @@ def test_search_candidates_note_when_filters_too_strict(settings, conn):
 def test_search_candidates_no_note_with_results(settings, conn):
     import asyncio
 
+    from tests.conftest import FakeOllama
+
     from app.agent.tools import ToolContext, execute_tool
     from app.enrich.canonicalize import Canonicalizer
-    from tests.conftest import FakeOllama
 
     seed_facet_library(conn)
     ctx = ToolContext(
@@ -380,9 +390,7 @@ def test_search_candidates_no_note_with_results(settings, conn):
         canon=Canonicalizer.from_db(conn),
     )
     out = asyncio.run(
-        execute_tool(
-            "search_candidates", {"query": "rock", "languages": ["es"]}, ctx
-        )
+        execute_tool("search_candidates", {"query": "rock", "languages": ["es"]}, ctx)
     )
     assert out["count"] >= 1
     assert "note" not in out

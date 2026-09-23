@@ -3,8 +3,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 import httpx
 
@@ -42,7 +43,7 @@ class Track:
     cover_art: str = ""
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> "Track":
+    def from_json(cls, data: dict[str, Any]) -> Track:
         return cls(
             id=data.get("id", ""),
             title=data.get("title", ""),
@@ -76,7 +77,7 @@ class Album:
     songs: list[Track] = field(default_factory=list)
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> "Album":
+    def from_json(cls, data: dict[str, Any]) -> Album:
         return cls(
             id=data.get("id", ""),
             name=data.get("name", "") or data.get("title", ""),
@@ -101,7 +102,7 @@ class Artist:
     music_brainz_id: str = ""
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> "Artist":
+    def from_json(cls, data: dict[str, Any]) -> Artist:
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),
@@ -121,7 +122,7 @@ class Playlist:
     entries: list[Track] = field(default_factory=list)
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> "Playlist":
+    def from_json(cls, data: dict[str, Any]) -> Playlist:
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),
@@ -158,7 +159,7 @@ class SubsonicClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "SubsonicClient":
+    def __enter__(self) -> SubsonicClient:
         return self
 
     def __exit__(self, *exc: Any) -> None:
@@ -178,12 +179,8 @@ class SubsonicClient:
 
     def url_for(self, endpoint: str, **params: Any) -> str:
         query = self._auth_params()
-        query.update(
-            {k: v for k, v in params.items() if v is not None}
-        )
-        request = httpx.Request(
-            "GET", f"{self.base_url}/rest/{endpoint}", params=query
-        )
+        query.update({k: v for k, v in params.items() if v is not None})
+        request = httpx.Request("GET", f"{self.base_url}/rest/{endpoint}", params=query)
         return str(request.url)
 
     def _request(
@@ -201,9 +198,7 @@ class SubsonicClient:
         last_exc: Exception | None = None
         for attempt in range(retries + 1):
             try:
-                response = self._client.get(
-                    f"{self.base_url}/rest/{endpoint}", params=query
-                )
+                response = self._client.get(f"{self.base_url}/rest/{endpoint}", params=query)
                 response.raise_for_status()
                 payload = response.json()
                 body = payload.get("subsonic-response", {})
@@ -252,13 +247,8 @@ class SubsonicClient:
     def get_album_list2(
         self, list_type: str = "alphabeticalByName", size: int = 500, offset: int = 0
     ) -> list[Album]:
-        body = self._request(
-            "getAlbumList2.view", type=list_type, size=size, offset=offset
-        )
-        return [
-            Album.from_json(a)
-            for a in body.get("albumList2", {}).get("album", []) or []
-        ]
+        body = self._request("getAlbumList2.view", type=list_type, size=size, offset=offset)
+        return [Album.from_json(a) for a in body.get("albumList2", {}).get("album", []) or []]
 
     def iter_all_albums(self, page_size: int = 500) -> Iterable[Album]:
         offset = 0
@@ -300,10 +290,7 @@ class SubsonicClient:
 
     def get_playlists(self) -> list[Playlist]:
         body = self._request("getPlaylists.view")
-        return [
-            Playlist.from_json(p)
-            for p in body.get("playlists", {}).get("playlist", []) or []
-        ]
+        return [Playlist.from_json(p) for p in body.get("playlists", {}).get("playlist", []) or []]
 
     def get_playlist(self, playlist_id: str) -> Playlist:
         body = self._request("getPlaylist.view", id=playlist_id)
@@ -347,27 +334,17 @@ class SubsonicClient:
         body = self._request("getScanStatus.view")
         return body.get("scanStatus", {})
 
-    def get_lyrics(
-        self, artist: str, title: str
-    ) -> str:
+    def get_lyrics(self, artist: str, title: str) -> str:
         """Letra de un tema (vacío si no hay). OpenSubsonic getLyrics."""
-        body = self._request(
-            "getLyrics.view", artist=artist, title=title
-        )
+        body = self._request("getLyrics.view", artist=artist, title=title)
         lyrics = body.get("lyrics") or {}
         return str(lyrics.get("value") or "")
 
     def get_lyrics_by_song_id(self, track_id: str) -> str:
         """Letra por ID de canción (OpenSubsonic getLyricsBySongId)."""
         body = self._request("getLyricsBySongId.view", id=track_id)
-        entries = (
-            body.get("lyricsList", {}).get("structuredLyrics", []) or []
-        )
-        parts = [
-            entry.get("line", [])
-            for entry in entries
-            if isinstance(entry, dict)
-        ]
+        entries = body.get("lyricsList", {}).get("structuredLyrics", []) or []
+        parts = [entry.get("line", []) for entry in entries if isinstance(entry, dict)]
         lines: list[str] = []
         for part in parts:
             for line in part if isinstance(part, list) else []:
@@ -475,9 +452,7 @@ def sync_library(
         )
         stats["albums"] += 1
 
-        needs_tracks = with_tracks and (
-            existing_track_counts.get(album.id, 0) == 0
-        )
+        needs_tracks = with_tracks and (existing_track_counts.get(album.id, 0) == 0)
         if needs_tracks:
             full = client.get_album(album.id)
             for track in full.songs:
@@ -488,13 +463,9 @@ def sync_library(
     return stats
 
 
-def _upsert_track(
-    conn: Any, track: Track, artist_pk: str | None, now: str
-) -> None:
+def _upsert_track(conn: Any, track: Track, artist_pk: str | None, now: str) -> None:
     album_row = (
-        conn.execute(
-            "SELECT id FROM albums WHERE navidrome_id = ?", (track.album_id,)
-        ).fetchone()
+        conn.execute("SELECT id FROM albums WHERE navidrome_id = ?", (track.album_id,)).fetchone()
         if track.album_id
         else None
     )

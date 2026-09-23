@@ -197,3 +197,10 @@ def test_display_helpers():
     assert display_language("xx") == "xx"
     assert display_country("AR") == "Argentina"
     assert display_country("ZZ") == "ZZ"
+
+
+def test_decade_of_out_of_range_string():
+    from app.enrich.vocab import decade_of
+
+    assert decade_of("5000") is None
+    assert decade_of(5000) is None

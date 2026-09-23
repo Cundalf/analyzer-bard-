@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.config import Settings, get_settings
-from app.db import start_run, finish_run
-from app.enrich import artist as artist_mod
+from app.db import finish_run, start_run
 from app.enrich import album as album_mod
+from app.enrich import artist as artist_mod
+from app.enrich import lyrics as lyrics_mod
 from app.enrich import track as track_mod
 from app.enrich.canonicalize import Canonicalizer
 from app.enrich.lastfm import LastFmClient
-from app.enrich import lyrics as lyrics_mod
 from app.ollama import OllamaClient
 
 log = logging.getLogger("bardo.enrich.pipeline")
@@ -57,14 +58,11 @@ async def enrich_library(
     try:
         if artists:
             rows = conn.execute(
-                "SELECT * FROM artists ORDER BY name"
-                + (f" LIMIT {int(limit)}" if limit else "")
+                "SELECT * FROM artists ORDER BY name" + (f" LIMIT {int(limit)}" if limit else "")
             ).fetchall()
             for i, row in enumerate(rows, 1):
                 row = dict(row)
-                enriched = await artist_mod.enrich_artist(
-                    conn, ollama, canon, row, force=force
-                )
+                enriched = await artist_mod.enrich_artist(conn, ollama, canon, row, force=force)
                 if enriched:
                     stats["artists"] += 1
                 elif artist_mod.is_generic_entity(row.get("name")):
@@ -84,14 +82,11 @@ async def enrich_library(
 
         if albums:
             rows = conn.execute(
-                "SELECT * FROM albums ORDER BY name"
-                + (f" LIMIT {int(limit)}" if limit else "")
+                "SELECT * FROM albums ORDER BY name" + (f" LIMIT {int(limit)}" if limit else "")
             ).fetchall()
             for i, row in enumerate(rows, 1):
                 row = dict(row)
-                enriched = await album_mod.enrich_album(
-                    conn, ollama, canon, row, force=force
-                )
+                enriched = await album_mod.enrich_album(conn, ollama, canon, row, force=force)
                 if enriched:
                     stats["albums"] += 1
                 elif artist_mod.is_generic_entity(row.get("name")):
@@ -151,9 +146,7 @@ async def enrich_library(
                     if force or artist_mod.is_stale(
                         conn, "track", navidrome_id, {"row": navidrome_id}
                     ):
-                        ficha = track_mod.inherit_track_ficha(
-                            conn, row, album_ficha, artist_ficha
-                        )
+                        ficha = track_mod.inherit_track_ficha(conn, row, album_ficha, artist_ficha)
                         if ficha:
                             artist_mod.save_ficha(conn, ficha)
                             stats["tracks"] += 1
@@ -162,15 +155,11 @@ async def enrich_library(
                     else:
                         stats["skipped"] += 1
                 if settings.detect_language and client is not None:
-                    detected = _detect_track_language(
-                        conn, client, row, progress
-                    )
+                    detected = _detect_track_language(conn, client, row, progress)
                     if detected:
                         stats["languages"] += 1
                 if settings.analyze_audio:
-                    analyzed = _analyze_track_audio(
-                        conn, row, settings, progress
-                    )
+                    analyzed = _analyze_track_audio(conn, row, settings, progress)
                     if analyzed:
                         stats["audio"] += 1
                 progress("track", {"i": i, "total": len(rows), "title": row.get("title")})
@@ -188,9 +177,7 @@ async def enrich_library(
     return {"run_id": run_id, **stats}
 
 
-def _merge_lastfm_into_ficha(
-    conn: Any, entity_type: str, entity_id: str, tags: list[str]
-) -> None:
+def _merge_lastfm_into_ficha(conn: Any, entity_type: str, entity_id: str, tags: list[str]) -> None:
     """Agrega crowd tags de Last.fm a una ficha existente sin pisar el LLM."""
     from app.enrich.merge import merge_hard_facets
 
@@ -345,14 +332,10 @@ def row_id(track_row: dict[str, Any]) -> str:
 
 
 def _album_navidrome_id(conn: Any, album_pk: str) -> str:
-    row = conn.execute(
-        "SELECT navidrome_id FROM albums WHERE id = ?", (album_pk,)
-    ).fetchone()
+    row = conn.execute("SELECT navidrome_id FROM albums WHERE id = ?", (album_pk,)).fetchone()
     return (row["navidrome_id"] if row else album_pk) or album_pk
 
 
 def _artist_navidrome_id(conn: Any, artist_pk: str) -> str:
-    row = conn.execute(
-        "SELECT navidrome_id FROM artists WHERE id = ?", (artist_pk,)
-    ).fetchone()
+    row = conn.execute("SELECT navidrome_id FROM artists WHERE id = ?", (artist_pk,)).fetchone()
     return (row["navidrome_id"] if row else artist_pk) or artist_pk

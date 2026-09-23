@@ -35,9 +35,9 @@ def test_init_creates_all_tables(conn):
 def test_init_idempotent(conn):
     db_mod.init_db(conn)
     db_mod.init_db(conn)
-    version = conn.execute(
-        "SELECT value FROM meta WHERE key = 'schema_version'"
-    ).fetchone()["value"]
+    version = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()[
+        "value"
+    ]
     assert version == str(db_mod.SCHEMA_VERSION)
 
 
@@ -216,3 +216,23 @@ def test_get_conn_singleton(monkeypatch, tmp_path):
 def test_utcnow_format():
     value = db_mod.utcnow()
     assert "T" in value and "+00:00" in value
+
+
+def test_ensure_vec_table_recreates_when_table_missing(tmp_path, monkeypatch):
+    from app import db as db_mod
+    from app.config import get_settings
+
+    monkeypatch.setenv("EMBED_DIM", "768")
+    get_settings.cache_clear()
+    conn = db_mod.connect(tmp_path / "vec.db")
+    db_mod.init_db(conn)
+    # borra la tabla pero deja el meta: debe recrearla
+    conn.execute("DROP TABLE vec_fichas")
+    conn.commit()
+    db_mod._ensure_vec_table(conn, 768)
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='vec_fichas'"
+    ).fetchone()
+    assert exists is not None
+    conn.close()
+    get_settings.cache_clear()

@@ -15,7 +15,7 @@ WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY app ./app
 
-RUN pip install --no-cache-dir -e ".[janitor,lyrics]"
+RUN pip install --no-cache-dir ".[janitor,lyrics]"
 
 ARG UID=1000
 ARG GID=1000

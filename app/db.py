@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator, Sequence
+from typing import Any
 
 import sqlite_vec
 
@@ -182,9 +183,7 @@ def session() -> Iterator[sqlite3.Connection]:
 
 
 def _ensure_vec_table(conn: sqlite3.Connection, dim: int) -> None:
-    row = conn.execute(
-        "SELECT value FROM meta WHERE key = 'vec_dim'"
-    ).fetchone()
+    row = conn.execute("SELECT value FROM meta WHERE key = 'vec_dim'").fetchone()
     current = row["value"] if row else None
     if current is not None and int(current) == dim:
         exists = conn.execute(
@@ -205,9 +204,7 @@ def init_db(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
     conn = conn or get_conn()
     previous = None
     try:
-        row = conn.execute(
-            "SELECT value FROM meta WHERE key = 'schema_version'"
-        ).fetchone()
+        row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
         previous = int(row["value"]) if row else None
     except (sqlite3.OperationalError, TypeError, ValueError):
         previous = None
@@ -356,9 +353,7 @@ def facet_search(
     return result if result is not None else set()
 
 
-def facet_list(
-    conn: sqlite3.Connection, entity_type: str, facet: str
-) -> list[dict[str, Any]]:
+def facet_list(conn: sqlite3.Connection, entity_type: str, facet: str) -> list[dict[str, Any]]:
     rows = conn.execute(
         "SELECT value, COUNT(*) AS n FROM facet_index "
         "WHERE entity_type = ? AND facet = ? GROUP BY value ORDER BY n DESC",
@@ -392,9 +387,7 @@ def vec_upsert(
     embedding: Sequence[float],
 ) -> None:
     blob = sqlite_vec.serialize_float32([float(x) for x in embedding])
-    conn.execute(
-        "DELETE FROM vec_fichas WHERE entity_id = ?", (entity_id,)
-    )
+    conn.execute("DELETE FROM vec_fichas WHERE entity_id = ?", (entity_id,))
     conn.execute(
         "INSERT INTO vec_fichas(entity_id, entity_type, embedding) VALUES (?, ?, ?)",
         (entity_id, entity_type, blob),

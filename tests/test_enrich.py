@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from tests.conftest import FakeOllama, seed_library
 
 from app.enrich.album import enrich_album
 from app.enrich.artist import Ficha, enrich_artist, get_ficha, is_stale, save_ficha
 from app.enrich.canonicalize import Canonicalizer, content_hash
 from app.enrich.track import enrich_track_llm, inherit_track_ficha
-from tests.conftest import FakeOllama, seed_library
 
 ARTIST_FACETS = {
     "name": "Wind Rose",
@@ -28,6 +28,7 @@ ARTIST_FACETS = {
 
 
 # ------------------------------------------------------------ save/get/stale
+
 
 def test_save_and_get_ficha(conn):
     ficha = Ficha(
@@ -96,6 +97,7 @@ def test_is_stale_missing_and_equal(conn):
 
 
 # ------------------------------------------------------------ enrich_artist
+
 
 @pytest.mark.anyio
 async def test_enrich_artist_happy(conn, settings):
@@ -252,6 +254,7 @@ async def test_enrich_album_prompt_includes_tracks(conn, settings):
 
 # ------------------------------------------------------------ inherit_track
 
+
 def test_inherit_track_from_album_and_artist(conn):
     album_ficha = {
         "entity_id": "al1",
@@ -299,7 +302,13 @@ def test_inherit_track_no_fichas():
 
 
 def test_inherit_track_detects_ballad_and_instrumental():
-    album_ficha = {"entity_id": "al1", "facets": {}, "description": "", "confidence": 0.5, "content_hash": "h"}
+    album_ficha = {
+        "entity_id": "al1",
+        "facets": {},
+        "description": "",
+        "confidence": 0.5,
+        "content_hash": "h",
+    }
     for title, expected_instrumental in [
         ("Instrumental Intro", True),
         ("Prelude", True),
@@ -307,19 +316,21 @@ def test_inherit_track_detects_ballad_and_instrumental():
         ("Outro", True),
         ("Normal Song", False),
     ]:
-        ficha = inherit_track_ficha(
-            None, {"navidrome_id": "t", "title": title}, album_ficha, None
-        )
+        ficha = inherit_track_ficha(None, {"navidrome_id": "t", "title": title}, album_ficha, None)
         assert ficha.facets["is_instrumental"] is expected_instrumental
     for title in ("The Ballad", "Balada Triste", "Lament", "Elegy"):
-        ficha = inherit_track_ficha(
-            None, {"navidrome_id": "t", "title": title}, album_ficha, None
-        )
+        ficha = inherit_track_ficha(None, {"navidrome_id": "t", "title": title}, album_ficha, None)
         assert ficha.facets["is_ballad"] is True
 
 
 def test_inherit_track_without_navidrome_id():
-    album_ficha = {"entity_id": "al1", "facets": {}, "description": "", "confidence": 0.5, "content_hash": "h"}
+    album_ficha = {
+        "entity_id": "al1",
+        "facets": {},
+        "description": "",
+        "confidence": 0.5,
+        "content_hash": "h",
+    }
     ficha = inherit_track_ficha(
         None, {"id": "track:x", "navidrome_id": None, "title": "T"}, album_ficha, None
     )
@@ -335,9 +346,7 @@ def test_inherit_track_description_truncated():
         "confidence": 0.5,
         "content_hash": "h",
     }
-    ficha = inherit_track_ficha(
-        None, {"navidrome_id": "t", "title": "T"}, album_ficha, None
-    )
+    ficha = inherit_track_ficha(None, {"navidrome_id": "t", "title": "T"}, album_ficha, None)
     assert len(ficha.description) <= 400
 
 
@@ -380,7 +389,13 @@ async def test_enrich_track_llm_skips_fresh(conn, settings):
     seed_library(conn)
     ollama = FakeOllama(chat_responses=[TRACK_FACETS, TRACK_FACETS])
     canon = Canonicalizer.from_db(conn)
-    row = {"id": "track:t1", "navidrome_id": "t1", "title": "T", "album_id": None, "artist_id": None}
+    row = {
+        "id": "track:t1",
+        "navidrome_id": "t1",
+        "title": "T",
+        "album_id": None,
+        "artist_id": None,
+    }
     assert await enrich_track_llm(conn, ollama, canon, row, None, None) is not None
     assert await enrich_track_llm(conn, ollama, canon, row, None, None) is None
 
@@ -390,7 +405,13 @@ async def test_enrich_track_llm_failure(conn, settings):
     seed_library(conn)
     ollama = FakeOllama(chat_responses=[RuntimeError("boom")])
     canon = Canonicalizer.from_db(conn)
-    row = {"id": "track:t1", "navidrome_id": "t1", "title": "T", "album_id": None, "artist_id": None}
+    row = {
+        "id": "track:t1",
+        "navidrome_id": "t1",
+        "title": "T",
+        "album_id": None,
+        "artist_id": None,
+    }
     assert await enrich_track_llm(conn, ollama, canon, row, None, None, force=True) is None
 
 
@@ -417,3 +438,58 @@ async def test_enrich_track_llm_uses_artist_and_album_context(conn, settings):
     assert "Wind Rose" in user_msg
     assert "Wintersaga" in user_msg
     assert "Enanos" in user_msg
+
+
+@pytest.mark.anyio
+async def test_enrich_album_artist_exists_without_ficha(conn, settings):
+    from app.enrich.album import enrich_album
+    from app.enrich.canonicalize import Canonicalizer
+
+    seed_library(conn)
+    ollama = FakeOllama(
+        chat_responses=[
+            {
+                "artist": "W",
+                "album": "A",
+                "themes": [],
+                "moods": [],
+                "description": "d",
+                "confidence": 0.9,
+            }
+        ]
+    )
+    row = dict(conn.execute("SELECT * FROM albums WHERE navidrome_id='al1'").fetchone())
+    result = await enrich_album(conn, ollama, Canonicalizer.from_db(conn), row, force=True)
+    assert result is not None
+    # sin ficha de artista, usa los géneros de los álbumes del artista
+    prompt = ollama.calls[0]["messages"][1]["content"]
+    assert "folk metal" in prompt
+
+
+@pytest.mark.anyio
+async def test_enrich_album_artist_id_without_row(conn, settings):
+    from app.enrich.album import enrich_album
+    from app.enrich.canonicalize import Canonicalizer
+
+    seed_library(conn)
+    conn.execute("DELETE FROM artists WHERE id = 'artist:a1'")
+    conn.commit()
+    ollama = FakeOllama(
+        chat_responses=[
+            {
+                "artist": "X",
+                "album": "Y",
+                "themes": [],
+                "moods": [],
+                "description": "d",
+                "confidence": 0.9,
+            }
+        ]
+    )
+    row = dict(conn.execute("SELECT * FROM albums WHERE navidrome_id='al1'").fetchone())
+    result = await enrich_album(conn, ollama, Canonicalizer.from_db(conn), row, force=True)
+    assert result is not None
+    prompt = ollama.calls[0]["messages"][1]["content"]
+    assert "Artista: (desconocido)" in prompt
+    # sin ficha de artista, usa los géneros de los álbumes
+    assert "Géneros del artista: folk metal" in prompt

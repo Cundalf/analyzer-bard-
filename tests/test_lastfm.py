@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -156,9 +155,7 @@ def test_fetch_for_expired_cache_refetches(settings, no_sleep, conn):
     client = make_client(settings, t)
     client.fetch_for(conn, "artist", "a1", "X")
     old = (datetime.now(UTC) - timedelta(days=40)).isoformat(timespec="seconds")
-    conn.execute(
-        "UPDATE lastfm_cache SET fetched_at = ? WHERE entity_key = 'a1'", (old,)
-    )
+    conn.execute("UPDATE lastfm_cache SET fetched_at = ? WHERE entity_key = 'a1'", (old,))
     conn.commit()
     client.fetch_for(conn, "artist", "a1", "X")
     assert calls["n"] == 2
@@ -169,9 +166,7 @@ def test_fetch_for_corrupt_cache_refetches(settings, no_sleep, conn):
     t, calls = transport({"toptags": {"tag": [{"name": "folk", "count": 1}]}})
     client = make_client(settings, t)
     client.fetch_for(conn, "artist", "a1", "X")
-    conn.execute(
-        "UPDATE lastfm_cache SET fetched_at = 'no-es-fecha' WHERE entity_key='a1'"
-    )
+    conn.execute("UPDATE lastfm_cache SET fetched_at = 'no-es-fecha' WHERE entity_key='a1'")
     conn.commit()
     client.fetch_for(conn, "artist", "a1", "X")
     assert calls["n"] == 2

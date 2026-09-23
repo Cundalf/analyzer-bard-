@@ -4,6 +4,7 @@ Usa py3langid (139 idiomas, BSD-3) si está instalado. Es un dato duro:
 pisa lo que haya dicho el LLM sobre el idioma de la canción. Sin la
 dependencia, todo degrada a no-op.
 """
+
 from __future__ import annotations
 
 import logging

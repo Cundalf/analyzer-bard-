@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.conftest import FakeSubsonic, seed_library
 
 from app import db as db_mod
 from app import main as main_mod
 from app.web.i18n import detect_lang, translations
-from tests.conftest import FakeSubsonic, seed_library
 
 
 @pytest.fixture()
@@ -32,6 +32,7 @@ def seeded(client):
 
 
 # ------------------------------------------------------------ i18n
+
 
 def test_translations_spanish_default():
     t = translations("es")
@@ -84,6 +85,7 @@ def test_all_strings_have_same_keys():
 
 
 # ------------------------------------------------------------ páginas
+
 
 def test_dashboard(client):
     response = client.get("/")
@@ -198,6 +200,7 @@ def test_library_fix_background_error_logged(client, monkeypatch):
 
 # ------------------------------------------------------------ playlists
 
+
 def test_playlists_page(client, monkeypatch):
     class OkSubsonic(FakeSubsonic):
         def __enter__(self):
@@ -247,9 +250,7 @@ def test_playlist_generate_preview(client, seeded, monkeypatch):
 
     monkeypatch.setattr("app.subsonic.SubsonicClient", lambda s: OkSubsonic())
     monkeypatch.setattr(main_mod, "generate_playlist", fake_generate)
-    response = client.post(
-        "/playlists/generate", data={"prompt": "taberna", "use_agent": "true"}
-    )
+    response = client.post("/playlists/generate", data={"prompt": "taberna", "use_agent": "true"})
     assert response.status_code == 200
     assert "Taberna" in response.text
     assert 'name="track_ids" value="t1,t2"' in response.text
@@ -282,17 +283,13 @@ def test_playlist_save_ok(client, monkeypatch):
             pass
 
     monkeypatch.setattr("app.subsonic.SubsonicClient", lambda s: OkSubsonic())
-    response = client.post(
-        "/playlists/save", data={"name": "P", "track_ids": "t1, t2 ,t3"}
-    )
+    response = client.post("/playlists/save", data={"name": "P", "track_ids": "t1, t2 ,t3"})
     assert response.status_code == 200
     assert "Navidrome" in response.text
 
 
 def test_playlist_save_empty_ids(client):
-    response = client.post(
-        "/playlists/save", data={"name": "P", "track_ids": " , , "}
-    )
+    response = client.post("/playlists/save", data={"name": "P", "track_ids": " , , "})
     assert response.status_code == 200
     assert "track_ids" in response.text
 
@@ -312,6 +309,7 @@ def test_playlist_save_error(client, monkeypatch):
 
 
 # ------------------------------------------------------------ settings
+
 
 def test_settings_page(client):
     response = client.get("/settings")
@@ -355,6 +353,7 @@ def test_settings_post_redirect(client):
 
 
 # ------------------------------------------------------------ API
+
 
 def test_api_health(client):
     body = client.get("/api/health").json()
@@ -407,3 +406,187 @@ def test_list_models_error_returns_empty(monkeypatch):
     from app.config import get_settings
 
     assert main_mod._list_models(get_settings()) == []
+
+
+def test_dashboard_ollama_exception(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import db as db_mod
+    from app import main as main_mod
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    db_mod._conn = None
+
+    async def boom(self):
+        raise RuntimeError("ollama caído")
+
+    monkeypatch.setattr("app.ollama.OllamaClient.ping", boom)
+    with TestClient(main_mod.app) as web_client:
+        response = web_client.get("/")
+    assert response.status_code == 200
+    db_mod._conn = None
+    get_settings.cache_clear()
+
+
+def test_api_health_subsonic_exception(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import db as db_mod
+    from app import main as main_mod
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    db_mod._conn = None
+
+    monkeypatch.setattr(
+        "app.subsonic.SubsonicClient",
+        lambda s: (_ for _ in ()).throw(RuntimeError("x")),
+    )
+    with TestClient(main_mod.app) as web_client:
+        body = web_client.get("/api/health").json()
+    assert body["subsonic_ok"] is False
+    db_mod._conn = None
+    get_settings.cache_clear()
+
+
+def test_check_subsonic_ok(monkeypatch):
+    from app.config import get_settings
+    from app.main import _check_subsonic
+
+    class OkClient:
+        def __init__(self, settings):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            pass
+
+        def ping(self):
+            return {"status": "ok"}
+
+    monkeypatch.setattr("app.subsonic.SubsonicClient", OkClient)
+    assert _check_subsonic(get_settings()) is True
+
+
+def test_playlists_generate_client_close_on_success(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import db as db_mod
+    from app import main as main_mod
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    db_mod._conn = None
+
+    closed = {"v": False}
+
+    class ClosingSubsonic:
+        def __init__(self, settings):
+            pass
+
+        def close(self):
+            closed["v"] = True
+
+    async def fake_generate(conn, prompt, **kwargs):
+        return {
+            "playlist_name": "P",
+            "track_ids": [],
+            "reasoning": "",
+            "tool_calls": 0,
+            "trace": [],
+            "created_playlists": [],
+            "validation": [],
+            "saved": False,
+            "mode": "rerank",
+        }
+
+    monkeypatch.setattr("app.subsonic.SubsonicClient", ClosingSubsonic)
+    monkeypatch.setattr(main_mod, "generate_playlist", fake_generate)
+    with TestClient(main_mod.app) as web_client:
+        response = web_client.post("/playlists/generate", data={"prompt": "x"})
+    assert response.status_code == 200
+    assert closed["v"] is True
+    if db_mod._conn is not None:
+        db_mod._conn.close()
+        db_mod._conn = None
+    get_settings.cache_clear()
+
+
+def test_playlists_generate_client_constructor_fails(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import db as db_mod
+    from app import main as main_mod
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    db_mod._conn = None
+
+    class BrokenSubsonic:
+        def __init__(self, settings):
+            raise RuntimeError("no se pudo crear el cliente")
+
+    monkeypatch.setattr("app.subsonic.SubsonicClient", BrokenSubsonic)
+    with TestClient(main_mod.app) as web_client:
+        response = web_client.post("/playlists/generate", data={"prompt": "x"})
+    assert response.status_code == 200
+    assert "no se pudo crear el cliente" in response.text
+    if db_mod._conn is not None:
+        db_mod._conn.close()
+        db_mod._conn = None
+    get_settings.cache_clear()
+
+
+def test_facets_page(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import db as db_mod
+    from app import main as main_mod
+    from app.config import get_settings
+    from app.db import facet_upsert
+
+    assert main_mod.app is not None
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    db_mod._conn = None
+    test_client = TestClient(main_mod.app)
+    conn = db_mod.get_conn()
+    db_mod.init_db(conn)
+    facet_upsert(conn, "artist", "a1", {"language": "es", "country": "AR"})
+    facet_upsert(conn, "album", "al1", {"moods": ["fiesta"]})
+    conn.commit()
+    response = test_client.get("/facets")
+    assert response.status_code == 200
+    assert "es" in response.text
+    test_client.close()
+    if db_mod._conn is not None:
+        db_mod._conn.close()
+        db_mod._conn = None
+    get_settings.cache_clear()
+
+
+def test_facets_page_empty(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import db as db_mod
+    from app import main as main_mod
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    db_mod._conn = None
+    with TestClient(main_mod.app) as test_client:
+        response = test_client.get("/facets")
+    assert response.status_code == 200
+    if db_mod._conn is not None:
+        db_mod._conn.close()
+        db_mod._conn = None
+    get_settings.cache_clear()

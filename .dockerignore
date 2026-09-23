@@ -1,12 +1,29 @@
 .git
+.github
 .venv
 __pycache__
 *.pyc
+*.pyo
 .pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+.coverage.*
+htmlcov
+coverage.xml
+
+# Datos locales y secretos (nunca a la imagen)
 data
+runs
 music
 .env
-beets-config/library.db*
+beets-config/*
+!beets-config/config.example.yaml
+
+# Extras irrelevantes para la imagen
 *.egg-info
-.gitignore
-README.es.md
+dist
+build
+docs
+*.md
+!README.md

@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import unicodedata
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 log = logging.getLogger("bardo.enrich.canonicalize")
 
@@ -17,15 +18,13 @@ def normalize(term: str) -> str:
 
 class Canonicalizer:
     def __init__(self, synonyms: dict[str, str] | None = None):
-        self.synonyms = {
-            normalize(k): normalize(v) for k, v in (synonyms or {}).items()
-        }
+        self.synonyms = {normalize(k): normalize(v) for k, v in (synonyms or {}).items()}
         self._display: dict[str, str] = {}
         for value in (synonyms or {}).values():
             self._display.setdefault(normalize(value), str(value).strip())
 
     @classmethod
-    def from_db(cls, conn: Any) -> "Canonicalizer":
+    def from_db(cls, conn: Any) -> Canonicalizer:
         rows = conn.execute("SELECT term, canonical FROM synonyms").fetchall()
         return cls({r["term"]: r["canonical"] for r in rows})
 
@@ -41,9 +40,7 @@ class Canonicalizer:
             key = self.synonyms[key]
         return self._display.get(key, key)
 
-    def canonical_list(
-        self, terms: Iterable[str], *, keep_order: bool = True
-    ) -> list[str]:
+    def canonical_list(self, terms: Iterable[str], *, keep_order: bool = True) -> list[str]:
         out: list[str] = []
         for term in terms or []:
             canon = self.canonical(term)

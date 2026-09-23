@@ -16,8 +16,8 @@ from app.janitor.wav2flac import (
     scan_wavs,
 )
 
-
 # ------------------------------------------------------------ scan
+
 
 def test_scan_finds_wav_and_wave(tmp_path: Path):
     (tmp_path / "a.wav").write_bytes(b"RIFF")
@@ -72,6 +72,7 @@ def test_wav_scan_result_defaults():
 
 # ------------------------------------------------------------ ffmpeg detection
 
+
 def test_find_ffmpeg_explicit(tmp_path: Path):
     fake = tmp_path / "myffmpeg"
     fake.write_text("#!/bin/sh\n")
@@ -88,9 +89,7 @@ def test_find_ffmpeg_by_name_in_path(tmp_path: Path, monkeypatch):
 
 def test_find_ffmpeg_none(monkeypatch):
     monkeypatch.setenv("PATH", "/nonexistent")
-    monkeypatch.setattr(
-        "app.janitor.wav2flac.shutil.which", lambda name: None
-    )
+    monkeypatch.setattr("app.janitor.wav2flac.shutil.which", lambda name: None)
 
     real_import = __import__
 
@@ -113,9 +112,7 @@ def test_find_ffmpeg_prefers_explicit(monkeypatch, tmp_path):
 
 def test_find_ffmpeg_unknown_name_falls_back(monkeypatch):
     monkeypatch.setattr("app.janitor.wav2flac.shutil.which", lambda n: None)
-    monkeypatch.setattr(
-        "app.janitor.wav2flac.shutil.which", lambda n: None
-    )
+    monkeypatch.setattr("app.janitor.wav2flac.shutil.which", lambda n: None)
     import sys
     import types
 
@@ -126,6 +123,7 @@ def test_find_ffmpeg_unknown_name_falls_back(monkeypatch):
 
 
 # ------------------------------------------------------------ convert
+
 
 def fake_ffmpeg(tmp_path: Path, fail: bool = False, empty_output: bool = False):
     script = tmp_path / "ffmpeg-fake"
@@ -176,9 +174,7 @@ def test_convert_success_with_backup(tmp_path: Path):
     wav.write_bytes(b"RIFFDATA")
     binary = fake_ffmpeg(tmp_path)
     backup = tmp_path / "bk"
-    finding = convert_wav_to_flac(
-        wav, backup_dir=backup, ffmpeg_bin=binary
-    )
+    finding = convert_wav_to_flac(wav, backup_dir=backup, ffmpeg_bin=binary)
     assert finding.converted is True
     assert finding.backed_up is True
     assert finding.deleted is False
@@ -279,6 +275,7 @@ def test_convert_failure_keeps_nonempty_flac(tmp_path: Path, monkeypatch):
 
 # ------------------------------------------------------------ convert_all
 
+
 def test_convert_all_uses_settings_backup(tmp_path: Path):
     music = tmp_path / "music"
     music.mkdir()
@@ -319,3 +316,54 @@ def test_convert_all_empty(tmp_path: Path):
     scan = WavScanResult(music_dir=tmp_path)
     result = convert_all(scan, settings=Settings(data_dir=str(tmp_path / "d")))
     assert result.count == 0
+
+
+def test_scan_stat_error_uses_zero(tmp_path, monkeypatch):
+    from app.janitor import wav2flac
+
+    (tmp_path / "a.wav").write_bytes(b"RIFF")
+    real_stat = Path.stat
+
+    def broken_stat(self, *args, **kwargs):
+        if self.name == "a.wav":
+            raise OSError("sin permisos")
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr("pathlib.Path.stat", broken_stat)
+    result = wav2flac.scan_wavs(tmp_path)
+    assert result.findings[0].size == 0
+
+
+def test_find_ffmpeg_binary_name_in_path(tmp_path, monkeypatch):
+    from app.janitor import wav2flac
+
+    fake = tmp_path / "customtool"
+    fake.write_text("#!/bin/sh")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert wav2flac.find_ffmpeg("customtool") == str(fake)
+
+
+def test_convert_all_explicit_backup_and_delete(tmp_path):
+    from app.janitor.wav2flac import convert_all, scan_wavs
+
+    music = tmp_path / "music"
+    music.mkdir()
+    (music / "a.wav").write_bytes(b"RIFF")
+    script = tmp_path / "ff"
+    script.write_text(
+        '#!/bin/sh\nout=\'\'\nfor a in "$@"; do out="$a"; done\nprintf \'fLaC\' > "$out"\n'
+    )
+    script.chmod(0o755)
+    scan = scan_wavs(music)
+    settings = Settings(data_dir=str(tmp_path / "data"), ffmpeg_bin=str(script))
+    backup = tmp_path / "explicit-backup"
+    convert_all(
+        scan,
+        settings=settings,
+        delete_original=False,
+        backup_dir=backup,
+        ffmpeg_bin=str(script),
+    )
+    assert scan.findings[0].backed_up is True
+    assert (backup / "a.wav").exists()

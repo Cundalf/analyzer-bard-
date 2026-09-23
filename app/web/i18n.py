@@ -8,7 +8,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "playlists": "🎵 Playlists IA",
         "settings": "⚙️ Configuración",
         "dashboard_title": "Bardo",
-        "dashboard_subtitle": "Arreglá la metadata de tu biblioteca y armá playlists temáticas con IA, 100% local.",
+        "dashboard_subtitle": (
+            "Arreglá la metadata de tu biblioteca y armá playlists temáticas con IA, 100% local."
+        ),
         "status": "Estado",
         "navidrome": "Navidrome",
         "ok": "OK",
@@ -46,7 +48,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "playlists_title": "Playlists IA",
         "playlists_subtitle": "Describí lo que querés escuchar y Bardo arma la playlist.",
         "prompt_label": "Prompt",
-        "prompt_placeholder": "Ej: celebración de taberna, Señor de los Anillos, música para estudiar…",
+        "prompt_placeholder": (
+            "Ej: celebración de taberna, Señor de los Anillos, música para estudiar…"
+        ),
         "use_agent": "Usar agente completo (tools + drill-down)",
         "generate": "Generar preview",
         "generating": "Generando…",
@@ -78,7 +82,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "error": "Error",
         "facets": "🏷️ Facetas",
         "facets_title": "Facetas de la biblioteca",
-        "facets_subtitle": "Vocabulario controlado: idiomas, países, géneros, décadas y moods detectados.",
+        "facets_subtitle": (
+            "Vocabulario controlado: idiomas, países, géneros, décadas y moods detectados."
+        ),
         "facets_empty": "Todavía no hay facetas. Corré `bardo enrich` para generarlas.",
         "track_title": "Tema",
         "track_artist": "Artista",
@@ -89,7 +95,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "playlists": "🎵 AI Playlists",
         "settings": "⚙️ Settings",
         "dashboard_title": "Bardo",
-        "dashboard_subtitle": "Fix your library metadata and build thematic playlists with AI, 100% local.",
+        "dashboard_subtitle": (
+            "Fix your library metadata and build thematic playlists with AI, 100% local."
+        ),
         "status": "Status",
         "navidrome": "Navidrome",
         "ok": "OK",
@@ -159,7 +167,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "error": "Error",
         "facets": "🏷️ Facets",
         "facets_title": "Library facets",
-        "facets_subtitle": "Controlled vocabulary: detected languages, countries, genres, decades and moods.",
+        "facets_subtitle": (
+            "Controlled vocabulary: detected languages, countries, genres, decades and moods."
+        ),
         "facets_empty": "No facets yet. Run `bardo enrich` to generate them.",
         "track_title": "Track",
         "track_artist": "Artist",

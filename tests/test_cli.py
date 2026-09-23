@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
+from tests.conftest import FakeSubsonic
 
 from app import cli
-from tests.conftest import FakeSubsonic
 
 
 def run(args, monkeypatch, capsys):
@@ -15,6 +16,7 @@ def run(args, monkeypatch, capsys):
 
 
 # ------------------------------------------------------------ parser
+
 
 def test_parser_requires_command():
     with pytest.raises(SystemExit):
@@ -65,6 +67,7 @@ def test_playlist_flags():
 
 
 # ------------------------------------------------------------ comandos
+
 
 def test_cmd_init(monkeypatch, capsys, tmp_path):
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
@@ -147,9 +150,7 @@ def test_cmd_janitor_error_exit_code(monkeypatch, capsys):
         def as_dict(self):
             return {"status": "error", "errors": ["x"]}
 
-    monkeypatch.setattr(
-        "app.janitor.runner.run_janitor", lambda **kwargs: Result()
-    )
+    monkeypatch.setattr("app.janitor.runner.run_janitor", lambda **kwargs: Result())
     code, _, _ = run(["janitor", "-p"], monkeypatch, capsys)
     assert code == 1
 
@@ -230,3 +231,112 @@ def test_setup_logging_verbose():
     assert logging.getLogger().level == logging.DEBUG
     cli._setup_logging(False)
     assert logging.getLogger().level == logging.INFO
+
+
+def test_main_verbose_reraises(monkeypatch, capsys):
+    from app import cli
+
+    def boom(args):
+        raise RuntimeError("detalle")
+
+    monkeypatch.setattr(cli, "cmd_health", boom)
+    with pytest.raises(RuntimeError):
+        cli.main(["-v", "health"])
+
+
+def test_cli_main_guard(monkeypatch):
+    import runpy
+
+    monkeypatch.setattr(sys, "argv", ["bardo", "health"])
+    with pytest.raises(SystemExit) as exc:
+        runpy.run_module("app.cli", run_name="__main__")
+    assert exc.value.code == 0
+
+
+def test_cli_enrich_audio_flag(monkeypatch, capsys, tmp_path):
+    from app import cli
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    captured = {}
+
+    async def fake_enrich(conn, **kwargs):
+        captured["settings"] = kwargs.get("settings")
+        return {"run_id": 1}
+
+    monkeypatch.setattr("app.enrich.pipeline.enrich_library", fake_enrich)
+    code = cli.main(["enrich", "--audio", "--no-lyrics"])
+    assert code == 0
+    assert captured["settings"].analyze_audio is True
+
+
+def test_cli_enrich_without_client_when_no_lyrics(monkeypatch, tmp_path):
+    from app import cli
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    captured = {}
+
+    async def fake_enrich(conn, **kwargs):
+        captured["client"] = kwargs.get("client")
+        return {"run_id": 1}
+
+    monkeypatch.setattr("app.enrich.pipeline.enrich_library", fake_enrich)
+    cli.main(["enrich", "--no-lyrics"])
+    assert captured["client"] is None
+
+
+def test_cli_enrich_client_creation_error(monkeypatch, capsys, tmp_path):
+    from app import cli
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+
+    def boom(settings):
+        raise RuntimeError("navidrome caído")
+
+    monkeypatch.setattr("app.subsonic.SubsonicClient", boom)
+
+    async def fake_enrich(conn, **kwargs):
+        return {"run_id": 1}
+
+    monkeypatch.setattr("app.enrich.pipeline.enrich_library", fake_enrich)
+    code = cli.main(["enrich"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "aviso" in out
+
+
+def test_cmd_facets_rebuild(monkeypatch, capsys, tmp_path):
+    from app import cli
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    code = cli.main(["facets", "--rebuild"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "rebuilt" in out
+
+
+def test_cmd_facets_summary(monkeypatch, capsys, tmp_path):
+    from app import cli
+    from app.db import facet_upsert, get_conn, init_db
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    conn = get_conn()
+    init_db(conn)
+    facet_upsert(conn, "track", "t1", {"languages": ["es"]})
+    conn.commit()
+    code = cli.main(["facets", "--entity-type", "track"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert '"es"' in out
+    assert '"languages"' in out
