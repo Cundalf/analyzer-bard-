@@ -116,6 +116,24 @@ def test_apply_hard_genre_non_list_genres():
     assert out["genres"] == ["Tango"]
 
 
+def test_apply_hard_genre_ignores_generic_tags():
+    out = apply_hard_genre_to_artist({"genres": ["folk metal"]}, ["Unknown", "N/A"])
+    assert out["genres"] == ["folk metal"]
+    # todos los tags eran genéricos: no hay dato duro, no se marca la fuente
+    assert "genres_source" not in out
+
+
+def test_merge_hard_facets_ignores_generic_genre():
+    out = merge_hard_facets({"genres": ["rock"]}, genre="[Unknown Artist]")
+    assert out["genres"] == ["rock"]
+
+
+def test_merge_hard_facets_ignores_generic_tags():
+    out = merge_hard_facets({}, lastfm_tags=["unknown", "N/A", "rock"])
+    assert out["genres"] == ["rock"]
+    assert out["lastfm_tags"] == ["rock"]
+
+
 # ------------------------------------------------------------ herencia completa
 
 def make_album_ficha(facets: dict) -> dict:

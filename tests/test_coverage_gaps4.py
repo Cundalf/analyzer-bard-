@@ -45,6 +45,7 @@ def test_hydrate_artist_moods_present_themes_from_references(conn):
     )
     results = retrieval.search_by_terms(conn, ["dwarves"])
     target = next(r for r in results if r["track_id"] == "t1")
+    # el álbum (borrado) ya no aporta; el artista da moods y references
     assert target["moods"] == ["x"]
     assert target["themes"] == ["ref"]
 

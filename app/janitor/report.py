@@ -167,6 +167,10 @@ def library_health(conn: Any) -> dict[str, Any]:
         """
     ).fetchone()["n"]
     tracks = conn.execute("SELECT COUNT(*) AS n FROM tracks").fetchone()["n"]
+    needs_janitor = conn.execute(
+        "SELECT COUNT(*) AS n FROM fichas "
+        "WHERE json_extract(facets, '$.needs_janitor') = 1"
+    ).fetchone()["n"]
     last_run = conn.execute(
         "SELECT id, status, started_at, finished_at, stats FROM runs "
         "ORDER BY id DESC LIMIT 1"
@@ -180,6 +184,7 @@ def library_health(conn: Any) -> dict[str, Any]:
         "unknown_artist": unknown_artist,
         "blank_name": blank_name,
         "generic_name": generic_name,
+        "needs_janitor": needs_janitor,
         "issues": issues,
         "health": round(min(100.0, score), 1),
         "last_run": dict(last_run) if last_run else None,

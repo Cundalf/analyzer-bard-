@@ -21,6 +21,13 @@ async def enrich_album(
     force: bool = False,
 ) -> dict[str, Any] | None:
     navidrome_id = album_row.get("navidrome_id") or album_row["id"]
+    from app.enrich.artist import is_generic_entity, mark_needs_janitor
+
+    if is_generic_entity(album_row.get("name")):
+        mark_needs_janitor(
+            conn, "album", navidrome_id, "álbum genérico", hash_payload="generic"
+        )
+        return None
     artist_name = ""
     artist_genres: list[str] = []
     artist_ficha = None

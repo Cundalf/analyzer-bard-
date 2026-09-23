@@ -164,6 +164,13 @@ prompt ──► [1] expansion (LLM → canonical terms + associations)
 - **Hard data beats the LLM:** Navidrome genre tags, Last.fm crowd tags and
   offline language detection (py3langid, from lyrics) override the model when
   they disagree.
+- **Nothing valid is ever lost:** re-enrichment merges by field (lists union,
+  scalars only replaced by valid values). Generic placeholders ("Unknown",
+  "Various Artists", "Track 01", "N/A") are never treated as data and never
+  overwrite a real value.
+- **No LLM on junk:** `[Unknown Artist]` / `[Unknown Album]` are marked
+  `needs_janitor` instead of being sent to the model (which would hallucinate);
+  the dashboard counts them so Module A fixes them.
 - **Optional real audio analysis:** loudness/energy, brightness, dynamic range
   always via ffmpeg; BPM and musical key with the `audio` extra (librosa).
   Disabled by default (`ANALYZE_AUDIO=true`, needs `MUSIC_DIR`).

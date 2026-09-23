@@ -202,7 +202,9 @@ async def test_enrich_album_happy(conn, settings):
     assert result["entity_id"] == "al1"
     ficha = get_ficha(conn, "album", "al1")
     assert ficha["facets"]["concept"] == "Enanos y cerveza"
-    assert ficha["facets"]["moods"] == ["epico"]
+    # seed_library dejó moods ["fiesta","epico"]: el merge no descarta lo previo
+    assert "epico" in ficha["facets"]["moods"]
+    assert "fiesta" in ficha["facets"]["moods"]
     assert ficha["facets"]["references"] == ["señor de los anillos"]
 
 

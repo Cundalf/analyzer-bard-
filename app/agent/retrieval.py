@@ -8,8 +8,6 @@ from app.enrich.artist import get_ficha
 
 log = logging.getLogger("bardo.agent.retrieval")
 
-UNKNOWN_MARKERS = ("[unknown", "unknown artist", "unknown album", "various artists")
-
 
 @dataclass
 class FacetFilters:
@@ -226,10 +224,9 @@ def _facet_numeric_params(
 
 
 def is_unknown(value: str | None) -> bool:
-    text = (value or "").strip().lower()
-    if not text:
-        return True
-    return any(marker in text for marker in UNKNOWN_MARKERS)
+    from app.enrich.generic import is_generic
+
+    return is_generic(value)
 
 
 def _row_to_candidate(row: dict[str, Any]) -> dict[str, Any]:

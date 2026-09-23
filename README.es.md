@@ -165,6 +165,13 @@ prompt ──► [1] expansión (LLM → términos canónicos + asociaciones)
 - **Dato duro pisa al LLM:** los tags de género de Navidrome, los crowd tags de
   Last.fm y la detección de idioma offline (py3langid, desde la letra) tienen
   prioridad cuando contradicen al modelo.
+- **Nada válido se pierde:** el re-enriquecimiento fusiona por campo (las listas
+  se unen, los escalares sólo se reemplazan por valores válidos). Los
+  placeholders genéricos ("Unknown", "Various Artists", "Track 01", "N/A") no
+  son datos y nunca pisan un valor real.
+- **Sin LLM para basura:** `[Unknown Artist]` / `[Unknown Album]` se marcan
+  `needs_janitor` en vez de mandarse al modelo (que alucinaría); el dashboard
+  los cuenta para que el Módulo A los arregle.
 - **Análisis acústico real opcional:** loudness/energía, brillo y rango dinámico
   siempre vía ffmpeg; BPM y tonalidad con el extra `audio` (librosa).
   Deshabilitado por defecto (`ANALYZE_AUDIO=true`, requiere `MUSIC_DIR`).

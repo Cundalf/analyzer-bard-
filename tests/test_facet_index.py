@@ -135,7 +135,9 @@ def test_save_ficha_updates_facet_index(conn):
         Ficha("artist", "a1", {"genres": ["Pop"], "language": "es"}, "d", 0.9, "llm", "h2"),
     )
     assert facet_list(conn, "artist", "languages")[0]["value"] == "es"
-    assert [g["value"] for g in facet_list(conn, "artist", "genres")] == ["pop"]
+    # los géneros se unen: no se pierde "rock" de la ficha anterior
+    genres = {g["value"] for g in facet_list(conn, "artist", "genres")}
+    assert genres == {"rock", "pop"}
 
 
 def test_init_db_migrates_from_v1(tmp_path, monkeypatch):

@@ -51,6 +51,7 @@ async def enrich_library(
         "skipped": 0,
         "languages": 0,
         "audio": 0,
+        "pending": 0,
     }
 
     try:
@@ -66,6 +67,8 @@ async def enrich_library(
                 )
                 if enriched:
                     stats["artists"] += 1
+                elif artist_mod.is_generic_entity(row.get("name")):
+                    stats["pending"] += 1
                 else:
                     stats["skipped"] += 1
                 if settings.enable_lastfm and settings.lastfm_api_key:
@@ -91,6 +94,8 @@ async def enrich_library(
                 )
                 if enriched:
                     stats["albums"] += 1
+                elif artist_mod.is_generic_entity(row.get("name")):
+                    stats["pending"] += 1
                 else:
                     stats["skipped"] += 1
                 progress("album", {"i": i, "total": len(rows), **row})

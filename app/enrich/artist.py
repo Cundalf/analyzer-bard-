@@ -30,6 +30,18 @@ def _hash_inputs(payload: Any) -> str:
 
 def save_ficha(conn: Any, ficha: Ficha) -> None:
     from app.db import facet_upsert, utcnow, fts_upsert
+    from app.enrich.merge import merge_confidence, merge_description, merge_ficha_facets
+
+    previous = get_ficha(conn, ficha.entity_type, ficha.entity_id)
+    facets = merge_ficha_facets(
+        previous["facets"] if previous else None, ficha.facets
+    )
+    description = merge_description(
+        previous.get("description") if previous else None, ficha.description
+    )
+    confidence = merge_confidence(
+        previous.get("confidence") if previous else None, ficha.confidence
+    )
 
     conn.execute(
         """
@@ -44,9 +56,9 @@ def save_ficha(conn: Any, ficha: Ficha) -> None:
         (
             ficha.entity_type,
             ficha.entity_id,
-            json.dumps(ficha.facets, ensure_ascii=False),
-            ficha.description,
-            ficha.confidence,
+            json.dumps(facets, ensure_ascii=False),
+            description,
+            confidence,
             ficha.source,
             ficha.content_hash,
             utcnow(),
@@ -58,9 +70,9 @@ def save_ficha(conn: Any, ficha: Ficha) -> None:
         conn,
         ficha.entity_type,
         ficha.entity_id,
-        ficha_text(ficha.facets, ficha.description),
+        ficha_text(facets, description),
     )
-    facet_upsert(conn, ficha.entity_type, ficha.entity_id, ficha.facets)
+    facet_upsert(conn, ficha.entity_type, ficha.entity_id, facets)
     conn.commit()
 
 
@@ -89,6 +101,51 @@ def is_stale(conn: Any, entity_type: str, entity_id: str, payload: Any) -> bool:
     return row["content_hash"] != _hash_inputs(payload)
 
 
+def mark_needs_janitor(
+    conn: Any,
+    entity_type: str,
+    entity_id: str,
+    reason: str,
+    *,
+    hash_payload: Any = None,
+) -> None:
+    """Marca una entidad genérica como pendiente del Módulo A.
+
+    No gasta LLM: con "[Unknown Artist]" el modelo alucinaría. La ficha
+    queda con la marca para que el dashboard la cuente y el Janitor la
+    arregle con fingerprinting.
+    """
+    from app.db import facet_upsert, fts_upsert, utcnow
+
+    facets = {"needs_janitor": True, "needs_janitor_reason": reason}
+    conn.execute(
+        """
+        INSERT INTO fichas(entity_type, entity_id, facets, description,
+                           confidence, source, content_hash, updated_at)
+        VALUES (?, ?, ?, '', 0.0, 'pending', ?, ?)
+        ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+          facets = excluded.facets, source = 'pending',
+          content_hash = excluded.content_hash, updated_at = excluded.updated_at
+        """,
+        (
+            entity_type,
+            entity_id,
+            json.dumps(facets, ensure_ascii=False),
+            _hash_inputs(hash_payload if hash_payload is not None else reason),
+            utcnow(),
+        ),
+    )
+    fts_upsert(conn, entity_type, entity_id, "")
+    facet_upsert(conn, entity_type, entity_id, facets)
+    conn.commit()
+
+
+def is_generic_entity(name: str | None) -> bool:
+    from app.enrich.generic import is_generic
+
+    return is_generic(name)
+
+
 async def enrich_artist(
     conn: Any,
     ollama: OllamaClient,
@@ -98,6 +155,11 @@ async def enrich_artist(
     force: bool = False,
 ) -> dict[str, Any] | None:
     navidrome_id = artist_row.get("navidrome_id") or artist_row["id"]
+    if is_generic_entity(artist_row.get("name")):
+        mark_needs_janitor(
+            conn, "artist", navidrome_id, "artista genérico", hash_payload="generic"
+        )
+        return None
     albums = [
         r["name"]
         for r in conn.execute(
